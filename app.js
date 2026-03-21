@@ -160,13 +160,13 @@ function showMilestone(index) {
     // Close any open popups first
     map.closePopup();
 
-    // Fly to location and center it
+    // Fly to location with smooth zoom
     map.flyTo(
         [milestone.coordinates.lat, milestone.coordinates.lng],
-        14,
+        15,
         {
-            duration: 1.5,
-            easeLinearity: 0.5
+            duration: 1.2,
+            easeLinearity: 0.3
         }
     );
 
@@ -174,17 +174,48 @@ function showMilestone(index) {
     setTimeout(() => {
         markers[index].openPopup();
 
-        // Ensure popup is centered - pan to adjust for popup offset
+        // Center the popup in viewport (both horizontally and vertically)
         setTimeout(() => {
             const popup = markers[index].getPopup();
             if (popup && popup.isOpen()) {
-                const popupHeight = popup.getElement().offsetHeight;
-                const point = map.latLngToContainerPoint(milestone.coordinates);
-                point.y -= popupHeight / 3; // Offset to center with popup
-                const newLatLng = map.containerPointToLatLng(point);
-                map.panTo(newLatLng, { animate: true, duration: 0.5 });
+                const popupElement = popup.getElement();
+                if (popupElement) {
+                    const popupHeight = popupElement.offsetHeight;
+                    const popupWidth = popupElement.offsetWidth;
+                    const mapSize = map.getSize();
+
+                    // Get the popup container's actual position on screen
+                    const popupContainer = popupElement.querySelector('.leaflet-popup-content-wrapper');
+                    if (popupContainer) {
+                        const popupRect = popupContainer.getBoundingClientRect();
+
+                        // Calculate desired center positions
+                        const desiredCenterX = window.innerWidth / 2;
+                        const desiredCenterY = (window.innerHeight / 2) + 40; // Slightly below center for header offset
+
+                        // Calculate current popup center
+                        const currentCenterX = popupRect.left + (popupRect.width / 2);
+                        const currentCenterY = popupRect.top + (popupRect.height / 2);
+
+                        // Calculate how much to move
+                        const deltaX = desiredCenterX - currentCenterX;
+                        const deltaY = desiredCenterY - currentCenterY;
+
+                        // Get current map center in pixels, adjust it, convert back to LatLng
+                        const currentCenter = map.getCenter();
+                        const currentCenterPoint = map.latLngToContainerPoint(currentCenter);
+
+                        const newCenterPoint = {
+                            x: currentCenterPoint.x - deltaX,
+                            y: currentCenterPoint.y - deltaY
+                        };
+
+                        const newLatLng = map.containerPointToLatLng(newCenterPoint);
+                        map.panTo(newLatLng, { animate: true, duration: 0.5 });
+                    }
+                }
             }
-        }, 100);
+        }, 400);
 
         // Auto-close timeline on mobile after selection
         if (isMobile && timelinePanelOpen) {
@@ -192,7 +223,7 @@ function showMilestone(index) {
                 toggleTimelinePanel();
             }, 500);
         }
-    }, 1600);
+    }, 1300);
 }
 
 // Navigation functions
