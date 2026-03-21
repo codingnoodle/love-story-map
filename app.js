@@ -102,6 +102,10 @@ function addMarker(milestone, index) {
 
 // Create popup content HTML
 function createPopupContent(milestone) {
+    console.log('Loading image URL:', milestone.image);
+    console.log('Loading headshot Junchi:', headshotJunchi);
+    console.log('Loading headshot Eugene:', headshotEugene);
+
     return `
         <div class="popup-card">
             <div class="popup-header">
@@ -112,16 +116,27 @@ function createPopupContent(milestone) {
                 <img src="${milestone.image}"
                      alt="${milestone.title}"
                      class="popup-image"
-                     crossorigin="anonymous"
-                     onerror="this.onerror=null; this.src='https://via.placeholder.com/400x300?text=Image+Unavailable';" />
-                <img src="${headshotJunchi}" alt="Junchi" class="headshot headshot-left" crossorigin="anonymous" />
-                <img src="${headshotEugene}" alt="Eugene" class="headshot headshot-right" crossorigin="anonymous" />
+                     onload="console.log('✅ Main image loaded successfully')"
+                     onerror="console.error('❌ Main image failed:', this.src); this.onerror=null; this.src='https://picsum.photos/400/300';" />
+                <img src="${headshotJunchi}"
+                     alt="Junchi"
+                     class="headshot headshot-left"
+                     onload="console.log('✅ Junchi headshot loaded')"
+                     onerror="console.error('❌ Junchi headshot failed:', this.src); this.onerror=null; this.src='https://picsum.photos/80/80?random=1';" />
+                <img src="${headshotEugene}"
+                     alt="Eugene"
+                     class="headshot headshot-right"
+                     onload="console.log('✅ Eugene headshot loaded')"
+                     onerror="console.error('❌ Eugene headshot failed:', this.src); this.onerror=null; this.src='https://picsum.photos/80/80?random=2';" />
             </div>
             <div class="popup-description">
                 ${milestone.description}
             </div>
             <div class="popup-location">
                 📍 ${milestone.location}
+            </div>
+            <div style="font-size:0.7rem; color:#999; margin-top:10px; text-align:center;">
+                Debug: Image loading from ${milestone.image.includes('theknot.com') ? 'The Knot CDN' : 'External source'}
             </div>
         </div>
     `;
