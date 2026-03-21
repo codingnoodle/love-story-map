@@ -67,12 +67,13 @@
 
         /* Map container - takes remaining space below header */
         .map-container {
-            position: absolute;
+            position: fixed;
             top: 80px;
             left: 0;
             right: 0;
             bottom: 0;
             overflow: hidden;
+            z-index: 1;
         }
 
         #map {
@@ -534,8 +535,8 @@
             }
 
             .map-container {
-                top: auto;
-                margin-top: 60px; /* Account for variable header height */
+                top: 60px; /* Fixed position for mobile */
+                bottom: 40px; /* Leave space for instruction bar */
             }
 
             /* Mobile instructions bottom bar spacing */
@@ -547,6 +548,17 @@
             /* Adjust nav controls to be above instructions */
             .nav-controls {
                 bottom: 45px; /* Above instruction bar */
+            }
+
+            /* Ensure popups and images work on mobile */
+            .leaflet-popup-content-wrapper {
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+
+            .popup-image-container {
+                max-height: 300px;
+                min-height: 200px;
             }
 
             /* Timeline panel - start hidden on mobile */
