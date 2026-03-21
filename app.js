@@ -378,8 +378,8 @@ function detectMotion(prevData, currData) {
         }
     }
 
-    // Wave/palm detection - high total motion without clear direction
-    if (motionCenter && motionCenter.total > 2000 && velocityX < 30 && velocityY < 30) {
+    // Wave/palm detection - high total motion without clear direction (more sensitive)
+    if (motionCenter && motionCenter.total > 1200 && velocityX < 50 && velocityY < 50) {
         console.log('🌸 WAVE/PALM detected! Total motion:', motionCenter.total.toFixed(0));
         triggerCherryBlossoms();
         lastGestureTime = now;
@@ -456,24 +456,25 @@ function triggerCherryBlossoms() {
     triggerLanterns();
 }
 
-// Trigger floating lantern animation
+// Trigger floating star animation
 function triggerLanterns() {
     const container = document.body;
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
         setTimeout(() => {
-            const lantern = document.createElement('div');
-            lantern.className = 'lantern';
-            lantern.style.left = Math.random() * window.innerWidth + 'px';
-            lantern.style.bottom = '-60px';
-            lantern.style.animationDelay = Math.random() * 0.5 + 's';
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * window.innerWidth + 'px';
+            star.style.bottom = '-60px';
+            star.style.animationDelay = Math.random() * 0.5 + 's';
+            star.innerHTML = '⭐';
 
-            container.appendChild(lantern);
+            container.appendChild(star);
 
             setTimeout(() => {
-                lantern.remove();
+                star.remove();
             }, 4000);
-        }, i * 150);
+        }, i * 120);
     }
 }
 

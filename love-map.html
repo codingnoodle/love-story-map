@@ -350,27 +350,27 @@
             }
         }
 
-        /* Floating lantern animation */
-        .lantern {
+        /* Floating star animation */
+        .star {
             position: absolute;
-            width: 40px;
-            height: 50px;
-            background: linear-gradient(180deg, var(--gold) 0%, #B8860B 100%);
-            border-radius: 10px;
+            font-size: 2rem;
             opacity: 0;
             pointer-events: none;
-            box-shadow: 0 0 20px var(--gold);
-            animation: float 4s ease-out forwards;
+            text-shadow: 0 0 10px var(--gold), 0 0 20px var(--gold);
+            animation: floatStar 4s ease-out forwards;
         }
 
-        @keyframes float {
+        @keyframes floatStar {
             0% {
                 opacity: 1;
-                transform: translateY(0) translateX(0);
+                transform: translateY(0) translateX(0) rotate(0deg) scale(0.5);
+            }
+            50% {
+                transform: translateY(-300px) translateX(30px) rotate(180deg) scale(1.2);
             }
             100% {
                 opacity: 0;
-                transform: translateY(-600px) translateX(50px);
+                transform: translateY(-600px) translateX(60px) rotate(360deg) scale(0.8);
             }
         }
 
