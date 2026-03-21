@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Junchi & Eugene's Love Story Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --sage-green: #9CAF88;
+            --blush-pink: #F4C2C2;
+            --ivory: #FFFFF0;
+            --gold: #D4AF37;
+            --deep-green: #6B8E65;
+            --soft-pink: #FFE4E4;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--ivory) 0%, var(--soft-pink) 100%);
+        }
+
+        /* Header section - fixed at top */
+        .header-section {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, var(--ivory) 0%, var(--soft-pink) 50%);
+            border-bottom: 3px solid var(--gold);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 15px 20px;
+            text-align: center;
+            z-index: 1000;
+            height: 80px;
+        }
+
+        .header-section h1 {
+            font-size: 2rem;
+            color: var(--deep-green);
+            margin: 0 0 5px 0;
+            text-shadow: 2px 2px 4px rgba(212, 175, 55, 0.2);
+        }
+
+        .header-section p {
+            font-size: 1rem;
+            color: var(--sage-green);
+            font-style: italic;
+            margin: 0;
+        }
+
+        /* Map container - takes remaining space below header */
+        .map-container {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            filter: saturate(0.7) brightness(1.1);
+        }
+
+        /* Webcam feed */
+        #webcam-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 3px solid var(--gold);
+            background: white;
+        }
+
+        #webcam {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror the video */
+        }
+
+        .gesture-indicator {
+            position: absolute;
+            bottom: 180px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            border: 2px solid var(--blush-pink);
+            max-width: 250px;
+        }
+
+        .gesture-indicator h3 {
+            color: var(--deep-green);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .gesture-indicator ul {
+            list-style: none;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .gesture-indicator li {
+            margin: 4px 0;
+        }
+
+        /* Custom marker styles */
+        .custom-marker {
+            background: var(--blush-pink);
+            border: 3px solid var(--gold);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .custom-marker:hover {
+            transform: scale(1.2);
+        }
+
+        /* Custom popup styling */
+        .leaflet-popup-content-wrapper {
+            background: linear-gradient(135deg, var(--ivory) 0%, white 100%);
+            border-radius: 20px;
+            padding: 0;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+            border: 3px solid var(--gold);
+            min-width: 400px;
+            max-width: 500px;
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+        }
+
+        .popup-card {
+            padding: 20px;
+        }
+
+        .popup-header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--sage-green);
+            padding-bottom: 10px;
+        }
+
+        .popup-header h2 {
+            color: var(--deep-green);
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .popup-header .date {
+            color: var(--gold);
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        .popup-image-container {
+            position: relative;
+            width: 100%;
+            max-height: 400px;
+            min-height: 300px;
+            margin: 15px 0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            background: var(--ivory);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .popup-image {
+            max-width: 100%;
+            max-height: 400px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        /* Headshot animation - spring bounce effect */
+        .headshot {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid var(--gold);
+            object-fit: cover;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .headshot-left {
+            bottom: 10px;
+            left: 10px;
+        }
+
+        .headshot-right {
+            bottom: 10px;
+            right: 10px;
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0) translateY(100px);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2) translateY(-10px);
+            }
+            70% {
+                transform: scale(0.9) translateY(5px);
+            }
+            100% {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .popup-description {
+            color: #333;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-top: 15px;
+            text-align: justify;
+        }
+
+        .popup-location {
+            text-align: center;
+            margin-top: 15px;
+            color: var(--sage-green);
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        /* Cherry blossom animation - realistic petals */
+        .cherry-blossom {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            opacity: 0;
+            pointer-events: none;
+            animation: fall 3s ease-in forwards;
+        }
+
+        .cherry-blossom::before,
+        .cherry-blossom::after {
+            content: '';
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: var(--blush-pink);
+            border-radius: 50% 50% 0 50%;
+            transform-origin: bottom left;
+        }
+
+        .cherry-blossom::before {
+            top: 0;
+            left: 0;
+            transform: rotate(45deg);
+        }
+
+        .cherry-blossom::after {
+            top: 0;
+            right: 0;
+            transform: rotate(-45deg);
+        }
+
+        /* Multiple petals */
+        .petal-1, .petal-2, .petal-3, .petal-4, .petal-5 {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: linear-gradient(135deg, #FFB6C1 0%, #FFC0CB 50%, var(--blush-pink) 100%);
+            border-radius: 50% 50% 0 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .petal-1 { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(0deg); }
+        .petal-2 { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(72deg); }
+        .petal-3 { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(144deg); }
+        .petal-4 { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(216deg); }
+        .petal-5 { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(288deg); }
+
+        /* Center of flower */
+        .cherry-blossom-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background: var(--gold);
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+        }
+
+        @keyframes fall {
+            0% {
+                opacity: 1;
+                transform: translateY(-50px) rotate(0deg) scale(1);
+            }
+            50% {
+                transform: translateY(250px) rotate(180deg) scale(0.8);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(600px) rotate(360deg) scale(0.5);
+            }
+        }
+
+        /* Floating lantern animation */
+        .lantern {
+            position: absolute;
+            width: 40px;
+            height: 50px;
+            background: linear-gradient(180deg, var(--gold) 0%, #B8860B 100%);
+            border-radius: 10px;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 0 20px var(--gold);
+            animation: float 4s ease-out forwards;
+        }
+
+        @keyframes float {
+            0% {
+                opacity: 1;
+                transform: translateY(0) translateX(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-600px) translateX(50px);
+            }
+        }
+
+        /* Navigation controls */
+        .nav-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            border-radius: 50px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            border: 2px solid var(--gold);
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            background: var(--sage-green);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-btn:hover {
+            background: var(--deep-green);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Timeline Directory Panel */
+        .timeline-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 2px solid var(--gold);
+            max-height: 70vh;
+            overflow-y: auto;
+            width: 300px;
+            transition: transform 0.3s ease;
+        }
+
+        .timeline-panel.hidden {
+            transform: translateX(-350px);
+        }
+
+        .timeline-panel h3 {
+            color: var(--deep-green);
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            text-align: center;
+            border-bottom: 2px solid var(--sage-green);
+            padding-bottom: 10px;
+        }
+
+        .timeline-item {
+            background: linear-gradient(135deg, var(--ivory) 0%, white 100%);
+            border: 2px solid var(--blush-pink);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-item:hover {
+            transform: translateX(5px);
+            border-color: var(--gold);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+        }
+
+        .timeline-item.active {
+            background: linear-gradient(135deg, var(--soft-pink) 0%, var(--blush-pink) 100%);
+            border-color: var(--gold);
+            border-width: 3px;
+        }
+
+        .timeline-item-number {
+            display: inline-block;
+            background: var(--gold);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.9rem;
+        }
+
+        .timeline-item-title {
+            color: var(--deep-green);
+            font-size: 0.95rem;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .timeline-item-location {
+            color: var(--sage-green);
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        .toggle-panel-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 999;
+            background: var(--gold);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .toggle-panel-btn:hover {
+            transform: scale(1.1);
+            background: var(--deep-green);
+        }
+
+        .toggle-panel-btn.panel-open {
+            left: 340px;
+        }
+
+        /* Motion debug indicator */
+        .motion-debug {
+            position: absolute;
+            bottom: 180px;
+            right: 240px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: monospace;
+            display: none;
+        }
+
+        .motion-debug.active {
+            display: block;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--ivory) 0%, var(--soft-pink) 100%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-size: 2rem;
+            color: var(--deep-green);
+            margin-top: 20px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="font-size: 4rem;">❤️</div>
+        <div class="loading-text">Loading Your Love Story...</div>
+    </div>
+
+    <!-- Header Section -->
+    <div class="header-section">
+        <h1>Junchi & Eugene's Love Journey</h1>
+        <p>A map of memories from where we've been 💕</p>
+    </div>
+
+    <!-- Map Container -->
+    <div class="map-container">
+        <div id="map"></div>
+
+        <!-- Motion Debug (for testing wave gestures) -->
+        <div class="motion-debug" id="motionDebug">
+            Motion: <span id="motionValue">0</span>
+        </div>
+
+        <!-- Toggle Panel Button -->
+        <button class="toggle-panel-btn" id="togglePanelBtn" onclick="toggleTimelinePanel()">📋</button>
+
+        <!-- Timeline Directory Panel -->
+        <div class="timeline-panel" id="timelinePanel">
+            <h3>📖 Our Love Story</h3>
+            <div id="timelineList"></div>
+        </div>
+    </div>
+
+    <!-- Webcam Container -->
+    <div id="webcam-container" style="display: none;">
+        <video id="webcam" autoplay playsinline></video>
+    </div>
+
+    <!-- Gesture Indicator -->
+    <div class="gesture-indicator" id="gestureIndicator" style="display: none;">
+        <h3>✋ Gesture Controls</h3>
+        <ul>
+            <li>👈 Swipe Left: Next milestone</li>
+            <li>👉 Swipe Right: Previous</li>
+            <li>👆 Hand Up: Zoom in</li>
+            <li>👇 Hand Down: Zoom out</li>
+            <li>🌸 Open Palm: Cherry blossoms</li>
+        </ul>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="nav-controls">
+        <button class="nav-btn" onclick="previousMilestone()">← Previous</button>
+        <button class="nav-btn" onclick="nextMilestone()">Next →</button>
+        <button class="nav-btn" onclick="toggleGestures()">📷 Gestures</button>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Love Story Data -->
+    <script src="loveStoryData.js"></script>
+
+    <!-- Main Application Script (No external libraries needed!) -->
+    <script src="app.js"></script>
+</body>
+</html>

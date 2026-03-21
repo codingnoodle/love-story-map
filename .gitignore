@@ -1,0 +1,23 @@
+# Node modules
+node_modules/
+
+# Mac files
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+
+# Downloaded HTML (don't need to upload the original Knot HTML)
+*.htm
+*_files/
+
+# Temp files
+/tmp/
+*.log
+
+# Keep our wedding map files
+!love-map.html
+!app.js
+!loveStoryData.js
+!README.md
