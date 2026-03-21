@@ -36,9 +36,14 @@ function initMap() {
         map = L.map('map', {
             center: [40.7589, -73.9851],
             zoom: 12,
-            zoomControl: true,
+            zoomControl: false, // Disable default zoom control
             scrollWheelZoom: true
         });
+
+        // Add zoom control at bottom-right position
+        L.control.zoom({
+            position: 'bottomright'
+        }).addTo(map);
 
         console.log('Leaflet map created:', map);
 
@@ -219,7 +224,7 @@ async function initMotionDetection() {
 
         let previousImageData = null;
 
-        // Start motion detection loop
+        // Start motion detection loop - faster for better responsiveness
         gestureCheckInterval = setInterval(() => {
             if (!gesturesEnabled) return;
 
@@ -231,7 +236,7 @@ async function initMotionDetection() {
             }
 
             previousImageData = currentImageData;
-        }, 200);
+        }, 100); // Reduced from 200ms to 100ms for faster detection
 
         console.log('Motion detection initialized! Wave your hand to test.');
     } catch (error) {
@@ -259,38 +264,42 @@ function detectMotion(prevData, currData) {
         motionScores[regionName] = calculateRegionMotion(prevData, currData, regions[regionName]);
     }
 
-    const threshold = 20;
+    const baseThreshold = 10;  // Much lower threshold
     const now = Date.now();
 
-    if (now - lastGestureTime < 1000) return;
+    if (now - lastGestureTime < 800) return; // Reduced cooldown for faster response
 
-    // Left motion -> Next (increased threshold for better detection)
-    if (motionScores.left > threshold * 1.5 && motionScores.left > motionScores.right * 2) {
-        console.log('👈 LEFT motion -> Next milestone');
+    // Left motion -> Next (VERY sensitive now)
+    const leftMotion = motionScores.left;
+    const rightMotion = motionScores.right;
+
+    // Check if left motion is dominant
+    if (leftMotion > baseThreshold && leftMotion > rightMotion * 1.5) {
+        console.log(`👈 LEFT swipe detected! L:${leftMotion.toFixed(1)} R:${rightMotion.toFixed(1)} -> NEXT`);
         nextMilestone();
         lastGestureTime = now;
         return;
     }
 
-    // Right motion -> Previous (increased threshold for better detection)
-    if (motionScores.right > threshold * 1.5 && motionScores.right > motionScores.left * 2) {
-        console.log('👉 RIGHT motion -> Previous milestone');
+    // Right motion -> Previous
+    if (rightMotion > baseThreshold && rightMotion > leftMotion * 1.5) {
+        console.log(`👉 RIGHT swipe detected! R:${rightMotion.toFixed(1)} L:${leftMotion.toFixed(1)} -> PREVIOUS`);
         previousMilestone();
         lastGestureTime = now;
         return;
     }
 
     // Up motion -> Zoom in
-    if (motionScores.top > threshold && motionScores.top > motionScores.bottom * 1.5) {
-        console.log('👆 UP motion -> Zoom in');
+    if (motionScores.top > baseThreshold * 1.2 && motionScores.top > motionScores.bottom * 1.5) {
+        console.log(`👆 UP motion detected! -> Zoom in`);
         map.zoomIn();
         lastGestureTime = now;
         return;
     }
 
     // Down motion -> Zoom out
-    if (motionScores.bottom > threshold && motionScores.bottom > motionScores.top * 1.5) {
-        console.log('👇 DOWN motion -> Zoom out');
+    if (motionScores.bottom > baseThreshold * 1.2 && motionScores.bottom > motionScores.top * 1.5) {
+        console.log(`👇 DOWN motion detected! -> Zoom out`);
         map.zoomOut();
         lastGestureTime = now;
         return;
@@ -300,12 +309,13 @@ function detectMotion(prevData, currData) {
     const totalMotion = Object.values(motionScores).reduce((a, b) => a + b, 0);
     const centerMotion = motionScores.center || 0;
 
-    // Show motion debug info
+    // Show motion debug info with detailed breakdown - ALWAYS visible when gestures enabled
     const motionDebug = document.getElementById('motionDebug');
     const motionValue = document.getElementById('motionValue');
-    if (motionDebug && motionValue) {
-        motionValue.textContent = totalMotion.toFixed(1);
-        if (totalMotion > threshold) {
+    if (motionDebug && motionValue && gesturesEnabled) {
+        motionValue.textContent = `L:${motionScores.left.toFixed(0)} | R:${motionScores.right.toFixed(0)} | Total:${totalMotion.toFixed(0)}`;
+        motionDebug.style.display = 'block';
+        if (leftMotion > baseThreshold || rightMotion > baseThreshold) {
             motionDebug.classList.add('active');
         } else {
             motionDebug.classList.remove('active');
@@ -314,16 +324,17 @@ function detectMotion(prevData, currData) {
 
     // Palm detection - high center motion, low peripheral motion (hand staying still in center)
     const peripheralMotion = (motionScores.left + motionScores.right + motionScores.top + motionScores.bottom) / 4;
-    if (centerMotion > threshold * 2 && peripheralMotion < threshold && centerMotion > peripheralMotion * 3) {
+    if (centerMotion > baseThreshold * 2 && peripheralMotion < baseThreshold && centerMotion > peripheralMotion * 3) {
         console.log('🖐️ PALM detected! Center motion:', centerMotion.toFixed(1));
         triggerCherryBlossoms();
         lastGestureTime = now;
         return;
     }
 
-    // Wave - rapid motion everywhere
-    if (totalMotion > threshold * 3) {
-        console.log('🌸 WAVE detected! Total motion:', totalMotion.toFixed(1));
+    // Wave - rapid motion everywhere (fingers waving or hand waving)
+    if (totalMotion > baseThreshold * 2.5) {
+        const gestureType = totalMotion > baseThreshold * 4 ? 'big wave' : 'finger wave';
+        console.log(`🌸 ${gestureType.toUpperCase()} detected! Total motion: ${totalMotion.toFixed(1)}`);
         triggerCherryBlossoms();
         lastGestureTime = now;
     }
@@ -503,17 +514,26 @@ function detectMobile() {
     return isMobile;
 }
 
-// Initialize touch gestures for mobile
+// Initialize touch gestures for mobile - works ANYWHERE on the page
 function initTouchGestures() {
-    const mapElement = document.getElementById('map');
+    // Apply touch gestures to the entire document body
+    document.body.addEventListener('touchstart', (e) => {
+        // Don't interfere with timeline panel interactions
+        if (e.target.closest('.timeline-panel') || e.target.closest('.toggle-panel-btn')) {
+            return;
+        }
 
-    mapElement.addEventListener('touchstart', (e) => {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
-    mapElement.addEventListener('touchend', (e) => {
+    document.body.addEventListener('touchend', (e) => {
         if (!e.changedTouches.length) return;
+
+        // Don't interfere with timeline panel interactions
+        if (e.target.closest('.timeline-panel') || e.target.closest('.toggle-panel-btn')) {
+            return;
+        }
 
         const touchEndX = e.changedTouches[0].clientX;
         const touchEndY = e.changedTouches[0].clientY;
@@ -521,19 +541,22 @@ function initTouchGestures() {
         const deltaX = touchEndX - touchStartX;
         const deltaY = touchEndY - touchStartY;
 
-        // Horizontal swipe (need significant movement)
-        if (Math.abs(deltaX) > 100 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+        // Horizontal swipe (works on photo popups OR map)
+        if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
             if (deltaX > 0) {
                 // Swipe right -> previous
+                console.log('📱 Swipe RIGHT detected -> Previous milestone');
                 previousMilestone();
             } else {
                 // Swipe left -> next
+                console.log('📱 Swipe LEFT detected -> Next milestone');
                 nextMilestone();
             }
         }
 
-        // Vertical swipe for cherry blossoms
-        if (Math.abs(deltaY) > 150 && Math.abs(deltaY) > Math.abs(deltaX) * 2) {
+        // Vertical swipe for cherry blossoms (works anywhere)
+        if (Math.abs(deltaY) > 120 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+            console.log('📱 Vertical swipe detected -> Cherry blossoms!');
             triggerCherryBlossoms();
         }
     }, { passive: true });
