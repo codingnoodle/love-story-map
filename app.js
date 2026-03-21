@@ -127,6 +127,9 @@ function showMilestone(index) {
     // Update active timeline item
     updateActiveTimelineItem(index);
 
+    // Close any open popups first
+    map.closePopup();
+
     map.flyTo(
         [milestone.coordinates.lat, milestone.coordinates.lng],
         13,
@@ -138,6 +141,13 @@ function showMilestone(index) {
 
     setTimeout(() => {
         markers[index].openPopup();
+
+        // Auto-close timeline on mobile after selection
+        if (isMobile && timelinePanelOpen) {
+            setTimeout(() => {
+                toggleTimelinePanel();
+            }, 500);
+        }
     }, 1600);
 }
 
@@ -164,14 +174,18 @@ async function toggleGestures() {
         gestureIndicator.style.display = 'block';
 
         gestureIndicator.innerHTML = `
-            <h3>✋ Motion Controls</h3>
+            <h3>✋ Gesture Controls</h3>
             <ul>
-                <li>👈 Move LEFT: Next story</li>
-                <li>👉 Move RIGHT: Previous story</li>
-                <li>👆 Move UP: Zoom in</li>
-                <li>👇 Move DOWN: Zoom out</li>
-                <li>🌸 Wave fast: Blossoms!</li>
+                <li>👈 Full hand LEFT: Next story</li>
+                <li>👉 Full hand RIGHT: Previous</li>
+                <li>👆 Hand UP: Zoom in</li>
+                <li>👇 Hand DOWN: Zoom out</li>
+                <li>🌸 Wave FAST: Blossoms!</li>
+                <li>🖐️ Show palm: Special effect</li>
             </ul>
+            <p style="font-size:0.75rem; margin-top:8px; color:#666;">
+                Tip: Move your ENTIRE hand clearly across camera
+            </p>
         `;
 
         await initMotionDetection();
@@ -234,6 +248,7 @@ function detectMotion(prevData, currData) {
 
     const regions = {
         left: { x: 0, y: 0, w: width / 3, h: height },
+        center: { x: width / 3, y: height / 3, w: width / 3, h: height / 3 },
         right: { x: 2 * width / 3, y: 0, w: width / 3, h: height },
         top: { x: 0, y: 0, w: width, h: height / 3 },
         bottom: { x: 0, y: 2 * height / 3, w: width, h: height / 3 }
@@ -249,16 +264,16 @@ function detectMotion(prevData, currData) {
 
     if (now - lastGestureTime < 1000) return;
 
-    // Left motion -> Next
-    if (motionScores.left > threshold && motionScores.left > motionScores.right * 2) {
+    // Left motion -> Next (increased threshold for better detection)
+    if (motionScores.left > threshold * 1.5 && motionScores.left > motionScores.right * 2) {
         console.log('👈 LEFT motion -> Next milestone');
         nextMilestone();
         lastGestureTime = now;
         return;
     }
 
-    // Right motion -> Previous
-    if (motionScores.right > threshold && motionScores.right > motionScores.left * 2) {
+    // Right motion -> Previous (increased threshold for better detection)
+    if (motionScores.right > threshold * 1.5 && motionScores.right > motionScores.left * 2) {
         console.log('👉 RIGHT motion -> Previous milestone');
         previousMilestone();
         lastGestureTime = now;
@@ -281,8 +296,9 @@ function detectMotion(prevData, currData) {
         return;
     }
 
-    // Wave = lots of motion everywhere (lowered for easier triggering)
+    // Wave = lots of motion everywhere
     const totalMotion = Object.values(motionScores).reduce((a, b) => a + b, 0);
+    const centerMotion = motionScores.center || 0;
 
     // Show motion debug info
     const motionDebug = document.getElementById('motionDebug');
@@ -296,8 +312,17 @@ function detectMotion(prevData, currData) {
         }
     }
 
-    // Trigger blossoms if enough motion (wave your hand!)
-    if (totalMotion > threshold * 2) {
+    // Palm detection - high center motion, low peripheral motion (hand staying still in center)
+    const peripheralMotion = (motionScores.left + motionScores.right + motionScores.top + motionScores.bottom) / 4;
+    if (centerMotion > threshold * 2 && peripheralMotion < threshold && centerMotion > peripheralMotion * 3) {
+        console.log('🖐️ PALM detected! Center motion:', centerMotion.toFixed(1));
+        triggerCherryBlossoms();
+        lastGestureTime = now;
+        return;
+    }
+
+    // Wave - rapid motion everywhere
+    if (totalMotion > threshold * 3) {
         console.log('🌸 WAVE detected! Total motion:', totalMotion.toFixed(1));
         triggerCherryBlossoms();
         lastGestureTime = now;
@@ -448,12 +473,26 @@ function toggleTimelinePanel() {
     const panel = document.getElementById('timelinePanel');
     const btn = document.getElementById('togglePanelBtn');
 
-    if (timelinePanelOpen) {
-        panel.classList.remove('hidden');
-        btn.classList.add('panel-open');
+    if (isMobile) {
+        // Mobile behavior
+        if (timelinePanelOpen) {
+            panel.classList.add('mobile-open');
+            panel.classList.remove('hidden');
+            btn.classList.add('panel-open');
+        } else {
+            panel.classList.remove('mobile-open');
+            panel.classList.add('hidden');
+            btn.classList.remove('panel-open');
+        }
     } else {
-        panel.classList.add('hidden');
-        btn.classList.remove('panel-open');
+        // Desktop behavior
+        if (timelinePanelOpen) {
+            panel.classList.remove('hidden');
+            btn.classList.add('panel-open');
+        } else {
+            panel.classList.add('hidden');
+            btn.classList.remove('panel-open');
+        }
     }
 }
 
@@ -526,6 +565,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enable touch gestures on mobile
         if (isMobile) {
             initTouchGestures();
+            // Start with timeline closed on mobile
+            timelinePanelOpen = false;
+            const panel = document.getElementById('timelinePanel');
+            const btn = document.getElementById('togglePanelBtn');
+            panel.classList.add('hidden');
+            btn.classList.remove('panel-open');
         }
     }, 100);
 });
