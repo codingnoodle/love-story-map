@@ -300,7 +300,7 @@ function calculateMotionCenter(prevData, currData) {
             const motion = (rDiff + gDiff + bDiff) / 3;
 
             // Only track pixels with strong motion (hand waving)
-            if (motion > 20) {  // Higher threshold to ignore small body movements
+            if (motion > 20) {
                 totalMotion += motion;
                 weightedX += x * motion;
                 weightedY += y * motion;
@@ -309,7 +309,7 @@ function calculateMotionCenter(prevData, currData) {
         }
     }
 
-    if (totalMotion > 0 && maxMotion > 30) {  // Ensure strong motion exists
+    if (totalMotion > 0 && maxMotion > 30) {
         return {
             x: weightedX / totalMotion,
             y: weightedY / totalMotion,
@@ -602,6 +602,45 @@ function initTouchGestures() {
     }
 }
 
+// Create ambient cherry blossoms floating continuously
+function startAmbientBlossoms() {
+    setInterval(() => {
+        const blossom = document.createElement('div');
+        blossom.className = 'cherry-blossom ambient';
+
+        // Start from random position at top (left 20% or right 20%)
+        const fromLeft = Math.random() > 0.5;
+        blossom.style.left = fromLeft
+            ? Math.random() * 20 + '%'
+            : (80 + Math.random() * 20) + '%';
+        blossom.style.top = '-50px';
+
+        // Random animation duration for variety
+        const duration = 8 + Math.random() * 4; // 8-12 seconds
+        blossom.style.animationDuration = duration + 's';
+        blossom.style.animationDelay = Math.random() * 2 + 's';
+
+        // Create 5 petals
+        for (let j = 1; j <= 5; j++) {
+            const petal = document.createElement('div');
+            petal.className = `petal-${j}`;
+            blossom.appendChild(petal);
+        }
+
+        // Add center
+        const center = document.createElement('div');
+        center.className = 'cherry-blossom-center';
+        blossom.appendChild(center);
+
+        document.body.appendChild(blossom);
+
+        // Remove after animation completes
+        setTimeout(() => {
+            blossom.remove();
+        }, (duration + 2) * 1000);
+    }, 3000); // New blossom every 3 seconds
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Love Story Map loading...');
@@ -626,6 +665,9 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.classList.add('hidden');
             btn.classList.remove('panel-open');
         }
+
+        // Start ambient blossoms after a short delay
+        setTimeout(startAmbientBlossoms, 2000);
     }, 100);
 });
 
