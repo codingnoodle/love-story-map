@@ -15,6 +15,7 @@ let timelinePanelOpen = true;
 let isMobile = false;
 let touchStartX = 0;
 let touchStartY = 0;
+let motionHistory = []; // Track motion over time for better detection
 
 // Placeholder headshot URLs
 const headshotJunchi = 'https://www.theknot.com/tk-media/images/cee0e60b-2040-4003-8565-f51514310837~rt_auto-rs_430.h';
@@ -246,97 +247,139 @@ async function initMotionDetection() {
     }
 }
 
-// Detect motion in video frames
-function detectMotion(prevData, currData) {
-    const width = canvas.width;
-    const height = canvas.height;
+// Calculate center of mass of motion
+function calculateMotionCenter(prevData, currData) {
+    let totalMotion = 0;
+    let weightedX = 0;
+    let weightedY = 0;
 
-    const regions = {
-        left: { x: 0, y: 0, w: width / 3, h: height },
-        center: { x: width / 3, y: height / 3, w: width / 3, h: height / 3 },
-        right: { x: 2 * width / 3, y: 0, w: width / 3, h: height },
-        top: { x: 0, y: 0, w: width, h: height / 3 },
-        bottom: { x: 0, y: 2 * height / 3, w: width, h: height / 3 }
-    };
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const i = (y * canvas.width + x) * 4;
 
-    const motionScores = {};
-    for (let regionName in regions) {
-        motionScores[regionName] = calculateRegionMotion(prevData, currData, regions[regionName]);
+            const rDiff = Math.abs(prevData.data[i] - currData.data[i]);
+            const gDiff = Math.abs(prevData.data[i + 1] - currData.data[i + 1]);
+            const bDiff = Math.abs(prevData.data[i + 2] - currData.data[i + 2]);
+
+            const motion = (rDiff + gDiff + bDiff) / 3;
+
+            if (motion > 10) { // Only count significant motion
+                totalMotion += motion;
+                weightedX += x * motion;
+                weightedY += y * motion;
+            }
+        }
     }
 
-    const baseThreshold = 10;  // Much lower threshold
+    if (totalMotion > 0) {
+        return {
+            x: weightedX / totalMotion,
+            y: weightedY / totalMotion,
+            total: totalMotion
+        };
+    }
+    return null;
+}
+
+// Detect motion in video frames - track direction over time
+function detectMotion(prevData, currData) {
     const now = Date.now();
 
-    if (now - lastGestureTime < 800) return; // Reduced cooldown for faster response
+    if (now - lastGestureTime < 800) return;
 
-    // Left motion -> Next (VERY sensitive now)
-    const leftMotion = motionScores.left;
-    const rightMotion = motionScores.right;
+    // Calculate center of motion
+    const motionCenter = calculateMotionCenter(prevData, currData);
 
-    // Check if left motion is dominant
-    if (leftMotion > baseThreshold && leftMotion > rightMotion * 1.5) {
-        console.log(`👈 LEFT swipe detected! L:${leftMotion.toFixed(1)} R:${rightMotion.toFixed(1)} -> NEXT`);
-        nextMilestone();
-        lastGestureTime = now;
+    if (!motionCenter || motionCenter.total < 500) {
+        motionHistory = [];
         return;
     }
 
-    // Right motion -> Previous
-    if (rightMotion > baseThreshold && rightMotion > leftMotion * 1.5) {
-        console.log(`👉 RIGHT swipe detected! R:${rightMotion.toFixed(1)} L:${leftMotion.toFixed(1)} -> PREVIOUS`);
-        previousMilestone();
-        lastGestureTime = now;
-        return;
+    // Add to history
+    motionHistory.push({
+        x: motionCenter.x,
+        y: motionCenter.y,
+        time: now,
+        total: motionCenter.total
+    });
+
+    // Keep only last 5 frames
+    if (motionHistory.length > 5) {
+        motionHistory.shift();
     }
 
-    // Up motion -> Zoom in
-    if (motionScores.top > baseThreshold * 1.2 && motionScores.top > motionScores.bottom * 1.5) {
-        console.log(`👆 UP motion detected! -> Zoom in`);
-        map.zoomIn();
-        lastGestureTime = now;
-        return;
-    }
+    // Need at least 3 frames to detect direction
+    if (motionHistory.length < 3) return;
 
-    // Down motion -> Zoom out
-    if (motionScores.bottom > baseThreshold * 1.2 && motionScores.bottom > motionScores.top * 1.5) {
-        console.log(`👇 DOWN motion detected! -> Zoom out`);
-        map.zoomOut();
-        lastGestureTime = now;
-        return;
-    }
+    // Calculate movement direction from oldest to newest
+    const oldest = motionHistory[0];
+    const newest = motionHistory[motionHistory.length - 1];
 
-    // Wave = lots of motion everywhere
-    const totalMotion = Object.values(motionScores).reduce((a, b) => a + b, 0);
-    const centerMotion = motionScores.center || 0;
+    const deltaX = newest.x - oldest.x;
+    const deltaY = newest.y - oldest.y;
+    const timeDelta = newest.time - oldest.time;
 
-    // Show motion debug info with detailed breakdown - ALWAYS visible when gestures enabled
+    // Calculate velocities
+    const velocityX = Math.abs(deltaX / timeDelta) * 1000; // pixels per second
+    const velocityY = Math.abs(deltaY / timeDelta) * 1000;
+
+    // Show debug info
     const motionDebug = document.getElementById('motionDebug');
     const motionValue = document.getElementById('motionValue');
     if (motionDebug && motionValue && gesturesEnabled) {
-        motionValue.textContent = `L:${motionScores.left.toFixed(0)} | R:${motionScores.right.toFixed(0)} | Total:${totalMotion.toFixed(0)}`;
+        motionValue.textContent = `vX:${velocityX.toFixed(0)} vY:${velocityY.toFixed(0)} | ΔX:${deltaX.toFixed(0)}`;
         motionDebug.style.display = 'block';
-        if (leftMotion > baseThreshold || rightMotion > baseThreshold) {
+        if (velocityX > 30 || velocityY > 30) {
             motionDebug.classList.add('active');
         } else {
             motionDebug.classList.remove('active');
         }
     }
 
-    // Palm detection - high center motion, low peripheral motion (hand staying still in center)
-    const peripheralMotion = (motionScores.left + motionScores.right + motionScores.top + motionScores.bottom) / 4;
-    if (centerMotion > baseThreshold * 2 && peripheralMotion < baseThreshold && centerMotion > peripheralMotion * 3) {
-        console.log('🖐️ PALM detected! Center motion:', centerMotion.toFixed(1));
-        triggerCherryBlossoms();
-        lastGestureTime = now;
-        return;
+    // Horizontal swipe detection - must be primarily horizontal
+    if (velocityX > 40 && velocityX > velocityY * 1.5 && Math.abs(deltaX) > 20) {
+        if (deltaX < 0) {
+            // Motion center moved LEFT -> hand swiped LEFT
+            console.log(`👈 HORIZONTAL SWIPE LEFT detected! ΔX:${deltaX.toFixed(0)} -> NEXT`);
+            nextMilestone();
+            lastGestureTime = now;
+            motionHistory = [];
+            return;
+        } else {
+            // Motion center moved RIGHT -> hand swiped RIGHT
+            console.log(`👉 HORIZONTAL SWIPE RIGHT detected! ΔX:${deltaX.toFixed(0)} -> PREVIOUS`);
+            previousMilestone();
+            lastGestureTime = now;
+            motionHistory = [];
+            return;
+        }
     }
 
-    // Wave - rapid motion everywhere (fingers waving or hand waving)
-    if (totalMotion > baseThreshold * 2.5) {
-        const gestureType = totalMotion > baseThreshold * 4 ? 'big wave' : 'finger wave';
-        console.log(`🌸 ${gestureType.toUpperCase()} detected! Total motion: ${totalMotion.toFixed(1)}`);
+    // Vertical motion for zoom - must be primarily vertical
+    if (velocityY > 50 && velocityY > velocityX * 2 && Math.abs(deltaY) > 20) {
+        if (deltaY < 0) {
+            // Motion center moved UP
+            console.log(`👆 VERTICAL SWIPE UP detected! ΔY:${deltaY.toFixed(0)} -> Zoom in`);
+            map.zoomIn();
+            lastGestureTime = now;
+            motionHistory = [];
+            return;
+        } else {
+            // Motion center moved DOWN
+            console.log(`👇 VERTICAL SWIPE DOWN detected! ΔY:${deltaY.toFixed(0)} -> Zoom out`);
+            map.zoomOut();
+            lastGestureTime = now;
+            motionHistory = [];
+            return;
+        }
+    }
+
+    // Wave/palm detection - high total motion without clear direction
+    if (motionCenter && motionCenter.total > 2000 && velocityX < 30 && velocityY < 30) {
+        console.log('🌸 WAVE/PALM detected! Total motion:', motionCenter.total.toFixed(0));
         triggerCherryBlossoms();
         lastGestureTime = now;
+        motionHistory = [];
     }
 }
 
