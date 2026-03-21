@@ -109,9 +109,13 @@ function createPopupContent(milestone) {
                 <div class="date">${milestone.date}</div>
             </div>
             <div class="popup-image-container">
-                <img src="${milestone.image}" alt="${milestone.title}" class="popup-image" />
-                <img src="${headshotJunchi}" alt="Junchi" class="headshot headshot-left" />
-                <img src="${headshotEugene}" alt="Eugene" class="headshot headshot-right" />
+                <img src="${milestone.image}"
+                     alt="${milestone.title}"
+                     class="popup-image"
+                     crossorigin="anonymous"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/400x300?text=Image+Unavailable';" />
+                <img src="${headshotJunchi}" alt="Junchi" class="headshot headshot-left" crossorigin="anonymous" />
+                <img src="${headshotEugene}" alt="Eugene" class="headshot headshot-right" crossorigin="anonymous" />
             </div>
             <div class="popup-description">
                 ${milestone.description}

@@ -211,6 +211,7 @@
             height: auto;
             object-fit: contain;
             animation: fadeIn 0.5s ease-in;
+            display: block; /* Ensure image displays */
         }
 
         /* Headshot animation - spring bounce effect */
@@ -554,11 +555,26 @@
             .leaflet-popup-content-wrapper {
                 max-height: 80vh;
                 overflow-y: auto;
+                min-width: 280px;
             }
 
             .popup-image-container {
-                max-height: 300px;
+                max-height: 250px;
                 min-height: 200px;
+                margin: 10px 0;
+            }
+
+            .popup-image {
+                max-height: 250px;
+                width: 100%;
+                height: auto;
+                object-fit: contain;
+            }
+
+            .popup-description {
+                font-size: 0.85rem;
+                max-height: 150px;
+                overflow-y: auto;
             }
 
             /* Timeline panel - start hidden on mobile */
