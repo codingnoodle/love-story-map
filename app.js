@@ -12,6 +12,9 @@ let ctx;
 let gestureCheckInterval;
 let lastGestureTime = 0;
 let timelinePanelOpen = true;
+let isMobile = false;
+let touchStartX = 0;
+let touchStartY = 0;
 
 // Placeholder headshot URLs
 const headshotJunchi = 'https://www.theknot.com/tk-media/images/cee0e60b-2040-4003-8565-f51514310837~rt_auto-rs_430.h';
@@ -454,15 +457,76 @@ function toggleTimelinePanel() {
     }
 }
 
+// Detect mobile device
+function detectMobile() {
+    isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+               || window.innerWidth <= 768;
+    return isMobile;
+}
+
+// Initialize touch gestures for mobile
+function initTouchGestures() {
+    const mapElement = document.getElementById('map');
+
+    mapElement.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    mapElement.addEventListener('touchend', (e) => {
+        if (!e.changedTouches.length) return;
+
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+
+        // Horizontal swipe (need significant movement)
+        if (Math.abs(deltaX) > 100 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+            if (deltaX > 0) {
+                // Swipe right -> previous
+                previousMilestone();
+            } else {
+                // Swipe left -> next
+                nextMilestone();
+            }
+        }
+
+        // Vertical swipe for cherry blossoms
+        if (Math.abs(deltaY) > 150 && Math.abs(deltaY) > Math.abs(deltaX) * 2) {
+            triggerCherryBlossoms();
+        }
+    }, { passive: true });
+
+    // Show mobile instructions briefly
+    const instructions = document.getElementById('mobileInstructions');
+    if (instructions) {
+        instructions.classList.add('show');
+        setTimeout(() => {
+            instructions.classList.remove('show');
+        }, 4000);
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Love Story Map loading...');
     console.log('loveStoryData length:', loveStoryData ? loveStoryData.length : 'undefined');
 
+    // Detect device type
+    detectMobile();
+    console.log('Device type:', isMobile ? 'Mobile' : 'Desktop');
+
     // Small delay to ensure layout is ready
     setTimeout(() => {
         initMap();
         populateTimelinePanel();
+
+        // Enable touch gestures on mobile
+        if (isMobile) {
+            initTouchGestures();
+        }
     }, 100);
 });
 

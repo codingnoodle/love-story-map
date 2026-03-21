@@ -511,6 +511,123 @@
             left: 340px;
         }
 
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .header-section {
+                height: 60px;
+                padding: 10px;
+            }
+
+            .header-section h1 {
+                font-size: 1.5rem;
+                margin-bottom: 3px;
+            }
+
+            .header-section p {
+                font-size: 0.85rem;
+            }
+
+            .map-container {
+                top: 60px;
+            }
+
+            /* Timeline panel takes more space on mobile */
+            .timeline-panel {
+                width: 85%;
+                max-width: 320px;
+                max-height: 60vh;
+            }
+
+            .timeline-panel.hidden {
+                transform: translateX(-110%);
+            }
+
+            .toggle-panel-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 1.3rem;
+            }
+
+            .toggle-panel-btn.panel-open {
+                left: calc(85% + 30px);
+            }
+
+            /* Hide webcam on mobile */
+            #webcam-container,
+            .gesture-indicator,
+            .motion-debug {
+                display: none !important;
+            }
+
+            /* Show mobile touch instructions */
+            .mobile-instructions {
+                display: block !important;
+            }
+
+            /* Adjust navigation controls for mobile */
+            .nav-controls {
+                bottom: 10px;
+                padding: 10px 20px;
+                gap: 10px;
+            }
+
+            .nav-btn {
+                padding: 8px 15px;
+                font-size: 0.9rem;
+            }
+
+            /* Hide gesture button on mobile */
+            .nav-btn.gesture-btn {
+                display: none;
+            }
+
+            /* Popup adjustments for mobile */
+            .leaflet-popup-content-wrapper {
+                min-width: 280px;
+                max-width: 90vw;
+            }
+
+            .popup-header h2 {
+                font-size: 1.3rem;
+            }
+
+            .popup-image-container {
+                max-height: 250px;
+                min-height: 200px;
+            }
+
+            .popup-description {
+                font-size: 0.9rem;
+            }
+
+            .headshot {
+                width: 60px;
+                height: 60px;
+            }
+        }
+
+        /* Mobile touch instructions */
+        .mobile-instructions {
+            display: none;
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            border: 2px solid var(--blush-pink);
+            font-size: 0.85rem;
+            text-align: center;
+            max-width: 250px;
+        }
+
+        .mobile-instructions.show {
+            display: block;
+        }
+
         /* Motion debug indicator */
         .motion-debug {
             position: absolute;
@@ -617,7 +734,13 @@
     <div class="nav-controls">
         <button class="nav-btn" onclick="previousMilestone()">← Previous</button>
         <button class="nav-btn" onclick="nextMilestone()">Next →</button>
-        <button class="nav-btn" onclick="toggleGestures()">📷 Gestures</button>
+        <button class="nav-btn gesture-btn" onclick="toggleGestures()">📷 Gestures</button>
+    </div>
+
+    <!-- Mobile Touch Instructions -->
+    <div class="mobile-instructions" id="mobileInstructions">
+        👆 Swipe on map to navigate<br>
+        📋 Use sidebar to jump to stories
     </div>
 
     <!-- Leaflet JS -->
