@@ -15,7 +15,7 @@ let timelinePanelOpen = true;
 let isMobile = false;
 let touchStartX = 0;
 let touchStartY = 0;
-let motionHistory = []; // Track motion over time for better detection
+let motionHistory = []; // Track motion over time
 
 // Placeholder headshot URLs
 const headshotJunchi = 'https://www.theknot.com/tk-media/images/cee0e60b-2040-4003-8565-f51514310837~rt_auto-rs_430.h';
@@ -102,7 +102,12 @@ function addMarker(milestone, index) {
 
 // Create popup content HTML
 function createPopupContent(milestone) {
-    console.log('Loading image URL:', milestone.image);
+    // The Knot CDN requires the ~rt_auto-rs_XXX.h suffix to serve images
+    const imageUrl = milestone.image.includes('~')
+        ? milestone.image
+        : `${milestone.image}~rt_auto-rs_768.h`;
+
+    console.log('Loading image URL:', imageUrl);
     console.log('Loading headshot Junchi:', headshotJunchi);
     console.log('Loading headshot Eugene:', headshotEugene);
 
@@ -113,7 +118,7 @@ function createPopupContent(milestone) {
                 <div class="date">${milestone.date}</div>
             </div>
             <div class="popup-image-container">
-                <img src="${milestone.image}"
+                <img src="${imageUrl}"
                      alt="${milestone.title}"
                      class="popup-image"
                      onload="console.log('✅ Main image loaded successfully')"
@@ -136,7 +141,7 @@ function createPopupContent(milestone) {
                 📍 ${milestone.location}
             </div>
             <div style="font-size:0.7rem; color:#999; margin-top:10px; text-align:center;">
-                Debug: Image loading from ${milestone.image.includes('theknot.com') ? 'The Knot CDN' : 'External source'}
+                Debug: ${imageUrl}
             </div>
         </div>
     `;
@@ -155,17 +160,31 @@ function showMilestone(index) {
     // Close any open popups first
     map.closePopup();
 
+    // Fly to location and center it
     map.flyTo(
         [milestone.coordinates.lat, milestone.coordinates.lng],
-        13,
+        14,
         {
             duration: 1.5,
             easeLinearity: 0.5
         }
     );
 
+    // Always open popup after animation
     setTimeout(() => {
         markers[index].openPopup();
+
+        // Ensure popup is centered - pan to adjust for popup offset
+        setTimeout(() => {
+            const popup = markers[index].getPopup();
+            if (popup && popup.isOpen()) {
+                const popupHeight = popup.getElement().offsetHeight;
+                const point = map.latLngToContainerPoint(milestone.coordinates);
+                point.y -= popupHeight / 3; // Offset to center with popup
+                const newLatLng = map.containerPointToLatLng(point);
+                map.panTo(newLatLng, { animate: true, duration: 0.5 });
+            }
+        }, 100);
 
         // Auto-close timeline on mobile after selection
         if (isMobile && timelinePanelOpen) {
@@ -201,15 +220,11 @@ async function toggleGestures() {
         gestureIndicator.innerHTML = `
             <h3>✋ Gesture Controls</h3>
             <ul>
-                <li>👈 Full hand LEFT: Next story</li>
-                <li>👉 Full hand RIGHT: Previous</li>
-                <li>👆 Hand UP: Zoom in</li>
-                <li>👇 Hand DOWN: Zoom out</li>
-                <li>🌸 Wave FAST: Blossoms!</li>
-                <li>🖐️ Show palm: Special effect</li>
+                <li>👈 Swipe LEFT: Next story</li>
+                <li>👉 Swipe RIGHT: Previous</li>
             </ul>
             <p style="font-size:0.75rem; margin-top:8px; color:#666;">
-                Tip: Move your ENTIRE hand clearly across camera
+                Tip: Wave full hand across camera
             </p>
         `;
 
@@ -221,7 +236,7 @@ async function toggleGestures() {
     }
 }
 
-// Initialize motion detection (no WebGL needed!)
+// Initialize simple motion detection using canvas pixel comparison
 async function initMotionDetection() {
     try {
         videoElement = document.getElementById('webcam');
@@ -244,7 +259,7 @@ async function initMotionDetection() {
 
         let previousImageData = null;
 
-        // Start motion detection loop - faster for better responsiveness
+        // Start motion detection loop
         gestureCheckInterval = setInterval(() => {
             if (!gesturesEnabled) return;
 
@@ -256,9 +271,9 @@ async function initMotionDetection() {
             }
 
             previousImageData = currentImageData;
-        }, 100); // Reduced from 200ms to 100ms for faster detection
+        }, 100);
 
-        console.log('Motion detection initialized! Wave your hand to test.');
+        console.log('✅ Simple motion detection initialized! Wave your hand to test.');
     } catch (error) {
         console.error('Webcam error:', error);
         alert('Could not access webcam. Please allow camera permissions and refresh.');
@@ -266,7 +281,7 @@ async function initMotionDetection() {
     }
 }
 
-// Calculate center of mass of motion
+// Calculate center of motion for gesture detection
 function calculateMotionCenter(prevData, currData) {
     let totalMotion = 0;
     let weightedX = 0;
@@ -282,7 +297,7 @@ function calculateMotionCenter(prevData, currData) {
 
             const motion = (rDiff + gDiff + bDiff) / 3;
 
-            if (motion > 10) { // Only count significant motion
+            if (motion > 10) {
                 totalMotion += motion;
                 weightedX += x * motion;
                 weightedY += y * motion;
@@ -300,16 +315,16 @@ function calculateMotionCenter(prevData, currData) {
     return null;
 }
 
-// Detect motion in video frames - track direction over time
+// Detect gestures from motion
 function detectMotion(prevData, currData) {
     const now = Date.now();
 
-    if (now - lastGestureTime < 800) return;
+    // Cooldown
+    if (now - lastGestureTime < 1000) return;
 
-    // Calculate center of motion
     const motionCenter = calculateMotionCenter(prevData, currData);
 
-    if (!motionCenter || motionCenter.total < 500) {
+    if (!motionCenter || motionCenter.total < 600) {
         motionHistory = [];
         return;
     }
@@ -322,15 +337,13 @@ function detectMotion(prevData, currData) {
         total: motionCenter.total
     });
 
-    // Keep only last 5 frames
-    if (motionHistory.length > 5) {
+    // Keep last 10 frames
+    if (motionHistory.length > 10) {
         motionHistory.shift();
     }
 
-    // Need at least 3 frames to detect direction
-    if (motionHistory.length < 3) return;
+    if (motionHistory.length < 5) return;
 
-    // Calculate movement direction from oldest to newest
     const oldest = motionHistory[0];
     const newest = motionHistory[motionHistory.length - 1];
 
@@ -338,15 +351,14 @@ function detectMotion(prevData, currData) {
     const deltaY = newest.y - oldest.y;
     const timeDelta = newest.time - oldest.time;
 
-    // Calculate velocities
-    const velocityX = Math.abs(deltaX / timeDelta) * 1000; // pixels per second
+    const velocityX = Math.abs(deltaX / timeDelta) * 1000;
     const velocityY = Math.abs(deltaY / timeDelta) * 1000;
 
-    // Show debug info
+    // Debug display
     const motionDebug = document.getElementById('motionDebug');
     const motionValue = document.getElementById('motionValue');
-    if (motionDebug && motionValue && gesturesEnabled) {
-        motionValue.textContent = `vX:${velocityX.toFixed(0)} vY:${velocityY.toFixed(0)} | ΔX:${deltaX.toFixed(0)}`;
+    if (motionDebug && motionValue) {
+        motionValue.textContent = `Motion:${motionCenter.total.toFixed(0)} vX:${velocityX.toFixed(0)} ΔX:${deltaX.toFixed(0)}`;
         motionDebug.style.display = 'block';
         if (velocityX > 30 || velocityY > 30) {
             motionDebug.classList.add('active');
@@ -355,73 +367,20 @@ function detectMotion(prevData, currData) {
         }
     }
 
-    // Horizontal swipe detection - must be primarily horizontal
-    if (velocityX > 40 && velocityX > velocityY * 1.5 && Math.abs(deltaX) > 20) {
-        if (deltaX < 0) {
-            // Motion center moved LEFT -> hand swiped LEFT
-            console.log(`👈 HORIZONTAL SWIPE LEFT detected! ΔX:${deltaX.toFixed(0)} -> NEXT`);
+    // LEFT/RIGHT SWIPE - simplified, more reliable
+    if (velocityX > 50 && velocityX > velocityY * 1.5 && Math.abs(deltaX) > 25) {
+        if (deltaX > 0) {
+            console.log(`👈 SWIPE LEFT detected! ΔX:${deltaX.toFixed(0)} -> NEXT`);
             nextMilestone();
             lastGestureTime = now;
             motionHistory = [];
-            return;
         } else {
-            // Motion center moved RIGHT -> hand swiped RIGHT
-            console.log(`👉 HORIZONTAL SWIPE RIGHT detected! ΔX:${deltaX.toFixed(0)} -> PREVIOUS`);
+            console.log(`👉 SWIPE RIGHT detected! ΔX:${deltaX.toFixed(0)} -> PREVIOUS`);
             previousMilestone();
             lastGestureTime = now;
             motionHistory = [];
-            return;
         }
     }
-
-    // Vertical motion for zoom - must be primarily vertical
-    if (velocityY > 50 && velocityY > velocityX * 2 && Math.abs(deltaY) > 20) {
-        if (deltaY < 0) {
-            // Motion center moved UP
-            console.log(`👆 VERTICAL SWIPE UP detected! ΔY:${deltaY.toFixed(0)} -> Zoom in`);
-            map.zoomIn();
-            lastGestureTime = now;
-            motionHistory = [];
-            return;
-        } else {
-            // Motion center moved DOWN
-            console.log(`👇 VERTICAL SWIPE DOWN detected! ΔY:${deltaY.toFixed(0)} -> Zoom out`);
-            map.zoomOut();
-            lastGestureTime = now;
-            motionHistory = [];
-            return;
-        }
-    }
-
-    // Wave/palm detection - high total motion without clear direction (more sensitive)
-    if (motionCenter && motionCenter.total > 1200 && velocityX < 50 && velocityY < 50) {
-        console.log('🌸 WAVE/PALM detected! Total motion:', motionCenter.total.toFixed(0));
-        triggerCherryBlossoms();
-        lastGestureTime = now;
-        motionHistory = [];
-    }
-}
-
-// Calculate motion in a specific region
-function calculateRegionMotion(prevData, currData, region) {
-    let motionSum = 0;
-    let pixelCount = 0;
-
-    for (let y = Math.floor(region.y); y < Math.floor(region.y + region.h); y++) {
-        for (let x = Math.floor(region.x); x < Math.floor(region.x + region.w); x++) {
-            const i = (y * canvas.width + x) * 4;
-
-            const rDiff = Math.abs(prevData.data[i] - currData.data[i]);
-            const gDiff = Math.abs(prevData.data[i + 1] - currData.data[i + 1]);
-            const bDiff = Math.abs(prevData.data[i + 2] - currData.data[i + 2]);
-
-            const avgDiff = (rDiff + gDiff + bDiff) / 3;
-            motionSum += avgDiff;
-            pixelCount++;
-        }
-    }
-
-    return motionSum / pixelCount;
 }
 
 // Stop gesture control
@@ -434,6 +393,8 @@ function stopGestureControl() {
         videoElement.srcObject.getTracks().forEach(track => track.stop());
         videoElement.srcObject = null;
     }
+
+    motionHistory = [];
 }
 
 // Trigger cherry blossom animation with realistic petals
