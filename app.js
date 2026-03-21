@@ -223,8 +223,8 @@ async function toggleGestures() {
                 <li>👈 Swipe LEFT: Next story</li>
                 <li>👉 Swipe RIGHT: Previous</li>
             </ul>
-            <p style="font-size:0.75rem; margin-top:8px; color:#666;">
-                Tip: Wave full hand across camera
+            <p style="font-size:0.65rem; margin-top:6px; color:#666;">
+                Keyboard: ←→ navigate | Space blossoms
             </p>
         `;
 
@@ -281,12 +281,14 @@ async function initMotionDetection() {
     }
 }
 
-// Calculate center of motion for gesture detection
+// Calculate center of STRONGEST motion (where hand is)
 function calculateMotionCenter(prevData, currData) {
     let totalMotion = 0;
     let weightedX = 0;
     let weightedY = 0;
+    let maxMotion = 0;
 
+    // Only look at significant motion to filter out body movements
     for (let y = 0; y < canvas.height; y++) {
         for (let x = 0; x < canvas.width; x++) {
             const i = (y * canvas.width + x) * 4;
@@ -297,19 +299,22 @@ function calculateMotionCenter(prevData, currData) {
 
             const motion = (rDiff + gDiff + bDiff) / 3;
 
-            if (motion > 10) {
+            // Only track pixels with strong motion (hand waving)
+            if (motion > 20) {  // Higher threshold to ignore small body movements
                 totalMotion += motion;
                 weightedX += x * motion;
                 weightedY += y * motion;
+                if (motion > maxMotion) maxMotion = motion;
             }
         }
     }
 
-    if (totalMotion > 0) {
+    if (totalMotion > 0 && maxMotion > 30) {  // Ensure strong motion exists
         return {
             x: weightedX / totalMotion,
             y: weightedY / totalMotion,
-            total: totalMotion
+            total: totalMotion,
+            maxMotion: maxMotion
         };
     }
     return null;
@@ -329,7 +334,7 @@ function detectMotion(prevData, currData) {
         return;
     }
 
-    // Add to history
+    // Add to history - track position of strongest motion (hand)
     motionHistory.push({
         x: motionCenter.x,
         y: motionCenter.y,
@@ -337,49 +342,50 @@ function detectMotion(prevData, currData) {
         total: motionCenter.total
     });
 
-    // Keep last 10 frames
-    if (motionHistory.length > 10) {
+    // Keep last 5 frames
+    if (motionHistory.length > 5) {
         motionHistory.shift();
     }
 
-    if (motionHistory.length < 5) return;
+    if (motionHistory.length < 4) return;
 
+    // Track hand path from oldest to newest position
     const oldest = motionHistory[0];
     const newest = motionHistory[motionHistory.length - 1];
 
     const deltaX = newest.x - oldest.x;
     const deltaY = newest.y - oldest.y;
     const timeDelta = newest.time - oldest.time;
-
-    const velocityX = Math.abs(deltaX / timeDelta) * 1000;
-    const velocityY = Math.abs(deltaY / timeDelta) * 1000;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
     // Debug display
     const motionDebug = document.getElementById('motionDebug');
     const motionValue = document.getElementById('motionValue');
     if (motionDebug && motionValue) {
-        motionValue.textContent = `Motion:${motionCenter.total.toFixed(0)} vX:${velocityX.toFixed(0)} ΔX:${deltaX.toFixed(0)}`;
+        motionValue.textContent = `X:${motionCenter.x.toFixed(0)} ΔX:${deltaX.toFixed(0)} Dist:${distance.toFixed(0)}`;
         motionDebug.style.display = 'block';
-        if (velocityX > 30 || velocityY > 30) {
+        if (distance > 20) {
             motionDebug.classList.add('active');
         } else {
             motionDebug.classList.remove('active');
         }
     }
 
-    // LEFT/RIGHT SWIPE - simplified, more reliable
-    if (velocityX > 50 && velocityX > velocityY * 1.5 && Math.abs(deltaX) > 25) {
-        if (deltaX > 0) {
-            console.log(`👈 SWIPE LEFT detected! ΔX:${deltaX.toFixed(0)} -> NEXT`);
-            nextMilestone();
-            lastGestureTime = now;
-            motionHistory = [];
-        } else {
-            console.log(`👉 SWIPE RIGHT detected! ΔX:${deltaX.toFixed(0)} -> PREVIOUS`);
+    // Detect clear horizontal swipe (hand moved across camera)
+    if (distance > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5 && timeDelta > 0) {
+        console.log(`🔍 HAND MOVED: deltaX=${deltaX.toFixed(0)} distance=${distance.toFixed(0)}`);
+
+        if (deltaX < 0) {
+            // Hand position moved LEFT on screen -> user hand moved RIGHT -> swipe RIGHT
+            console.log(`👉 Hand moved LEFT on screen → User swiped RIGHT → PREVIOUS`);
             previousMilestone();
-            lastGestureTime = now;
-            motionHistory = [];
+        } else {
+            // Hand position moved RIGHT on screen -> user hand moved LEFT -> swipe LEFT
+            console.log(`👈 Hand moved RIGHT on screen → User swiped LEFT → NEXT`);
+            nextMilestone();
         }
+        lastGestureTime = now;
+        motionHistory = [];
     }
 }
 
@@ -432,23 +438,26 @@ function triggerCherryBlossoms() {
     triggerLanterns();
 }
 
-// Trigger floating star animation
+// Trigger floating hearts and stars from bottom
 function triggerLanterns() {
     const container = document.body;
 
+    // Mix of hearts and stars
+    const emojis = ['⭐', '💖', '✨', '💗', '🌟', '💕'];
+
     for (let i = 0; i < 12; i++) {
         setTimeout(() => {
-            const star = document.createElement('div');
-            star.className = 'star';
-            star.style.left = Math.random() * window.innerWidth + 'px';
-            star.style.bottom = '-60px';
-            star.style.animationDelay = Math.random() * 0.5 + 's';
-            star.innerHTML = '⭐';
+            const element = document.createElement('div');
+            element.className = 'star'; // Reuse star animation
+            element.style.left = Math.random() * window.innerWidth + 'px';
+            element.style.bottom = '-60px';
+            element.style.animationDelay = Math.random() * 0.5 + 's';
+            element.innerHTML = emojis[Math.floor(Math.random() * emojis.length)];
 
-            container.appendChild(star);
+            container.appendChild(element);
 
             setTimeout(() => {
-                star.remove();
+                element.remove();
             }, 4000);
         }, i * 120);
     }
@@ -622,6 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (event) => {
+    if (event.repeat) return; // Prevent holding key
+
     switch(event.key) {
         case 'ArrowLeft':
             previousMilestone();
