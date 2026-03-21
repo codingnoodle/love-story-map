@@ -604,13 +604,14 @@ function initTouchGestures() {
         }
     }, { passive: true });
 
-    // Show mobile instructions briefly
+    // Show mobile instructions briefly at top
     const instructions = document.getElementById('mobileInstructions');
     if (instructions) {
         instructions.classList.add('show');
+        // Auto-hide after 5 seconds
         setTimeout(() => {
             instructions.classList.remove('show');
-        }, 4000);
+        }, 5000);
     }
 }
 
