@@ -237,16 +237,23 @@ function previousMilestone() {
 async function toggleGestures() {
     gesturesEnabled = !gesturesEnabled;
 
-    const music = document.getElementById('ambient-music');
-
     const webcamContainer = document.getElementById('webcam-container');
     const gestureIndicator = document.getElementById('gestureIndicator');
     const wand = document.getElementById('magic-wand');
 
     if (gesturesEnabled) {
-        if (music) {
-            music.volume = 0.3;
-            music.play().catch(e => console.log('Autoplay blocked:', e));
+        // Build robust looping magical audio player out of a hidden Youtube iframe snippet
+        let musicFrame = document.getElementById('ambient-music-frame');
+        if (!musicFrame) {
+            musicFrame = document.createElement('iframe');
+            musicFrame.id = 'ambient-music-frame';
+            musicFrame.style.display = 'none';
+            musicFrame.allow = 'autoplay';
+            // Classic Hogwarts ambient loop
+            musicFrame.src = 'https://www.youtube.com/embed/tx0wPikP0U8?autoplay=1&loop=1&playlist=tx0wPikP0U8&enablejsapi=1';
+            document.body.appendChild(musicFrame);
+        } else {
+            musicFrame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
         }
 
         webcamContainer.style.display = 'block';
@@ -265,6 +272,11 @@ async function toggleGestures() {
 
         await initHandTracking();
     } else {
+        let musicFrame = document.getElementById('ambient-music-frame');
+        if (musicFrame) {
+            musicFrame.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        }
+
         webcamContainer.style.display = 'none';
         gestureIndicator.style.display = 'none';
         if (wand) wand.style.display = 'none';
