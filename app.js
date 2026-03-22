@@ -237,11 +237,18 @@ function previousMilestone() {
 async function toggleGestures() {
     gesturesEnabled = !gesturesEnabled;
 
+    const music = document.getElementById('ambient-music');
+
     const webcamContainer = document.getElementById('webcam-container');
     const gestureIndicator = document.getElementById('gestureIndicator');
     const wand = document.getElementById('magic-wand');
 
     if (gesturesEnabled) {
+        if (music) {
+            music.volume = 0.3;
+            music.play().catch(e => console.log('Autoplay blocked:', e));
+        }
+
         webcamContainer.style.display = 'block';
         gestureIndicator.style.display = 'block';
 

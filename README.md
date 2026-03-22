@@ -1,117 +1,45 @@
-# Junchi & Eugene's Interactive Love Story Map 💕
+# ⚡️ Junchi & Eugene's Love Story Map (Lumos Edition) ⚡️
 
-An immersive, gesture-controlled wedding website featuring an interactive map of love story milestones with a Spring Garden + Ancient Chinese fusion aesthetic.
+An immersive, magical 3D gesture-controlled wedding website featuring a dark celestial map of love story milestones mapped to a Harry Potter aesthetic.
 
-## Features
+## 🪄 Magical Features
 
-✨ **Interactive Map**: Full-screen Leaflet.js map with custom markers for each milestone
-🎨 **Themed Design**: Sage green, blush pink, ivory, and gold color palette
-💑 **Custom Popups**: Beautifully styled cards with spring bounce animations
-📸 **Gesture Control**: Navigate using webcam and hand gestures via MediaPipe
-🌸 **Special Animations**: Cherry blossoms and floating lanterns on gesture trigger
+✨ **Interactive 3D Magic Wand**: Control a fully 3D-rendered wand (via React Three Fiber) that realistically tracks your hand!
+🌌 **Celestian Dark Theme**: CartoDB Dark Matter map tiles with deep blue, gold, and ivory CSS aesthetics.
+🖐️ **Smart Hand Tracking**: Navigate using your webcam and physical hand gestures via MediaPipe TFJS!
+📍 **Hover Reveal**: Sweep your magic wand over map markers to instantly reveal photo memories.
+🧙‍♂️ **Snap Grab & Swipe**: Close your fist near a marker to magically snap to its location, or flick your wand left/right in open space to sequentially navigate the timeline.
+🎇 **Patronus Orbs**: Beautiful glowing orbs trail behind the wand like lyrical memories.
 
-## Theme
+## How to Run Locally (Lumos Branch)
 
-**Spring Garden Wedding** at Sayen House and Gardens with ancient Chinese donghua aesthetics inspired by "Three Dynasties, Three Worlds"
+1. Make sure you are on the `lumos` branch!
+2. Install dependencies: `npm install`
+3. Start the Vite dev server: `npm run dev`
+4. Open the provided localhost link in your browser!
 
-## Files
+## 🚀 How to Host Both `main` and `lumos` on GitHub Pages
 
-- `love-map.html` - Main HTML file with themed styling
-- `app.js` - JavaScript application with map & gesture control
-- `loveStoryData.js` - Love story milestones data (15+ locations extracted)
+If you want to keep your original `main` branch webpage at `https://codingnoodle.github.io/love-story-map/love-map.html`, but ALSO want to host this magical wand version concurrently (e.g., as `.../lumos/love-map.html`), here is the easiest way to do it:
 
-## How to Run Locally
-
-### Method 1: Python HTTP Server (Recommended)
-
-```bash
-# Navigate to the project directory
-cd /Users/junchilu/2025AI_Projects/use_cases/ai_wedding
-
-# Start a local server on port 8000
-python3 -m http.server 8000
-
-# Open in your browser:
-# http://localhost:8000/love-map.html
-```
-
-### Method 2: Node.js HTTP Server
-
-```bash
-# Install http-server globally (if not installed)
-npm install -g http-server
-
-# Start server
-http-server -p 8000
-
-# Open: http://localhost:8000/love-map.html
-```
-
-### Method 3: VS Code Live Server
-
-1. Install the "Live Server" extension in VS Code
-2. Right-click on `love-map.html`
-3. Select "Open with Live Server"
+1. **Build the Lumos branch**: While on your local `lumos` branch, run the command `npm run build`. This will bundle the entire magical 3D app into a new folder called `dist/`.
+2. **Switch to your hosting branch**: Checkout whichever branch you use for GitHub pages hosting (e.g., `git checkout gh-pages` or `git checkout main`).
+3. **Move the files**: Simply copy the entire contents of that `dist/` folder into a new folder named `lumos/` directly inside your hosting branch!
+4. **Push to GitHub**: Commit and push.
+5. **Done!** Your original map will remain untouched at the root URL, and your new magical version will live permanently at `https://codingnoodle.github.io/love-story-map/lumos/love-map.html`! (This works flawlessly because we configured `vite.config.js` to use relative paths (`base: './'`)!)
 
 ## Gesture Controls
 
-Once you click the **"📷 Gestures"** button and allow webcam access:
+Click the **"✨ Magic Wand Mode"** button to allow webcam access and start the ambient music!
 
-| Gesture | Action |
+| Gesture / Motion | Action |
 |---------|--------|
-| 👈 **Swipe Left** | Navigate to NEXT milestone |
-| 👉 **Swipe Right** | Navigate to PREVIOUS milestone |
-| 👆 **Hand Up** | Zoom IN on map |
-| 👇 **Hand Down** | Zoom OUT on map |
-| 🌸 **Open Palm** | Trigger cherry blossoms & lanterns |
-
-## Keyboard Shortcuts
-
-- `←` Left Arrow: Previous milestone
-- `→` Right Arrow: Next milestone
-- `Space`: Trigger cherry blossom animation
-
-## About the Photos
-
-The photos are hosted on The Knot's CDN and will load automatically when you open the map. Each milestone includes:
-- Location on the interactive map
-- Story description
-- Photo from that moment
-- Animated headshots of Junchi & Eugene (with spring bounce effect)
-
-## Browser Compatibility
-
-**Recommended**: Latest Chrome, Edge, or Safari
-
-**Webcam/Gesture Control Requirements**:
-- HTTPS or localhost (for webcam access)
-- Modern browser with WebRTC support
-- Camera permissions granted
-
-## Customization
-
-To add your own headshots, replace these URLs in `app.js`:
-
-```javascript
-const headshotJunchi = 'YOUR_IMAGE_URL_HERE';
-const headshotEugene = 'YOUR_IMAGE_URL_HERE';
-```
-
-## Technical Stack
-
-- **Leaflet.js** - Interactive maps
-- **MediaPipe Hands** - Computer vision for gesture detection
-- **OpenStreetMap** - Free map tiles
-- **Vanilla JavaScript** - No build tools required!
-
-## Notes
-
-- The map includes 47 love story milestones extracted from your Knot website
-- The first 15 are pre-loaded in `loveStoryData.js` (can expand to all 47)
-- Gesture detection works best with good lighting and clear hand visibility
-- The webcam feed is mirrored so you can see your gestures naturally
-
-## Future Enhancements
+| 🪄 **Sweep & Hover** | Glide the wand tip over any map marker for 400ms to reveal its memory! |
+| ✊ **Snap Grab** | Close your fist while aiming near a marker to snap the map exactly to that spot. |
+| 👈 **Flick Left** | Close your fist in empty space and quickly pull left to go to the PREVIOUS memory. |
+| 👉 **Flick Right** | Close your fist in empty space and quickly pull right to go to the NEXT memory. |
+| 👆 **Hand Up (Fist)** | Zoom IN on map |
+| 👇 **Hand Down (Fist)** | Zoom OUT on map |
 
 - [ ] Add all 47 milestones to the data file
 - [ ] Custom sound effects for animations
