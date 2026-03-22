@@ -247,8 +247,13 @@ async function toggleGestures() {
         if (!musicFrame) {
             musicFrame = document.createElement('iframe');
             musicFrame.id = 'ambient-music-frame';
-            musicFrame.style.display = 'none';
-            musicFrame.allow = 'autoplay';
+            // Use 1px size instead of display: none to satisfy browser auto-play policies
+            musicFrame.style.position = 'absolute';
+            musicFrame.style.width = '1px';
+            musicFrame.style.height = '1px';
+            musicFrame.style.opacity = '0.01';
+            musicFrame.style.pointerEvents = 'none';
+            musicFrame.allow = 'autoplay; encrypted-media';
             // Classic Hogwarts ambient loop
             musicFrame.src = 'https://www.youtube.com/embed/tx0wPikP0U8?autoplay=1&loop=1&playlist=tx0wPikP0U8&enablejsapi=1';
             document.body.appendChild(musicFrame);
