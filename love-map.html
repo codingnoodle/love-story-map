@@ -16,12 +16,12 @@
         }
 
         :root {
-            --sage-green: #9CAF88;
-            --blush-pink: #F4C2C2;
-            --ivory: #FFFFF0;
-            --gold: #D4AF37;
-            --deep-green: #6B8E65;
-            --soft-pink: #FFE4E4;
+            --sage-green: #1a2639; 
+            --blush-pink: #2e4a70; 
+            --ivory: #0d1117; 
+            --gold: #FFD700; 
+            --deep-green: #e6e6e6; 
+            --soft-pink: #000000; 
         }
 
         body {
@@ -58,8 +58,8 @@
         }
 
         .header-section p {
-            font-size: 1rem;
-            color: var(--sage-green);
+            font-size: 1.1rem;
+            color: var(--gold);
             font-style: italic;
             margin: 0;
             line-height: 1.3;
@@ -79,7 +79,7 @@
         #map {
             width: 100%;
             height: 100%;
-            filter: saturate(0.7) brightness(1.1);
+            filter: saturate(0.8) brightness(0.9);
         }
 
         /* Webcam feed */
@@ -142,6 +142,9 @@
             align-items: center;
             justify-content: center;
             font-size: 20px;
+            font-weight: bold;
+            color: var(--gold);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             transition: transform 0.3s ease;
         }
@@ -447,10 +450,10 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(13, 17, 23, 0.95);
             padding: 15px 30px;
             border-radius: 50px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
             border: 2px solid var(--gold);
             display: flex;
             gap: 15px;
@@ -484,10 +487,10 @@
             top: 20px;
             left: 20px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(13, 17, 23, 0.95);
             padding: 15px;
             border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             border: 2px solid var(--gold);
             max-height: 70vh;
             overflow-y: auto;
@@ -500,16 +503,16 @@
         }
 
         .timeline-panel h3 {
-            color: var(--deep-green);
+            color: var(--gold);
             font-size: 1.1rem;
             margin-bottom: 12px;
             text-align: center;
-            border-bottom: 2px solid var(--sage-green);
+            border-bottom: 2px solid var(--blush-pink);
             padding-bottom: 8px;
         }
 
         .timeline-item {
-            background: linear-gradient(135deg, var(--ivory) 0%, white 100%);
+            background: linear-gradient(135deg, #161b22 0%, var(--sage-green) 100%);
             border: 2px solid var(--blush-pink);
             border-radius: 10px;
             padding: 10px;
@@ -521,11 +524,11 @@
         .timeline-item:hover {
             transform: translateX(5px);
             border-color: var(--gold);
-            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.15);
         }
 
         .timeline-item.active {
-            background: linear-gradient(135deg, var(--soft-pink) 0%, var(--blush-pink) 100%);
+            background: linear-gradient(135deg, var(--sage-green) 0%, var(--blush-pink) 100%);
             border-color: var(--gold);
             border-width: 3px;
         }
@@ -533,7 +536,7 @@
         .timeline-item-number {
             display: inline-block;
             background: var(--gold);
-            color: white;
+            color: #000;
             width: 24px;
             height: 24px;
             border-radius: 50%;
@@ -545,14 +548,14 @@
         }
 
         .timeline-item-title {
-            color: var(--deep-green);
+            color: #e6e6e6;
             font-size: 0.85rem;
             font-weight: bold;
             margin-bottom: 2px;
         }
 
         .timeline-item-location {
-            color: var(--sage-green);
+            color: #aaa;
             font-size: 0.75rem;
             font-style: italic;
         }
@@ -822,6 +825,35 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        /* Magic Wand Styles */
+        .magic-wand-cursor {
+            position: fixed;
+            font-size: 3rem;
+            pointer-events: none;
+            z-index: 10001;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1);
+            display: none;
+            filter: drop-shadow(0 0 10px var(--gold)) drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+        }
+
+        .sparkle {
+            position: fixed;
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            box-shadow: 0 0 8px var(--gold), 0 0 12px var(--blush-pink);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            animation: fadeSparkle 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeSparkle {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.1) translateY(30px); }
+        }
     </style>
 </head>
 <body>
@@ -863,15 +895,18 @@
 
     <!-- Gesture Indicator -->
     <div class="gesture-indicator" id="gestureIndicator" style="display: none;">
-        <h3>✋ Gesture Controls</h3>
+        <h3>✨ Magic Wand Mode</h3>
         <ul>
-            <li>👈 Swipe Left: Next milestone</li>
-            <li>👉 Swipe Right: Previous</li>
-            <li>👆 Hand Up: Zoom in</li>
-            <li>👇 Hand Down: Zoom out</li>
-            <li>🌸 Open Palm: Cherry blossoms</li>
+            <li>✋ <strong>Move Hand:</strong> Guide wand</li>
+            <li>🤏 <strong>Pinch/Grab:</strong> Next photo</li>
+            <li>👆 <strong>Hand Up:</strong> Zoom in</li>
+            <li>👇 <strong>Hand Down:</strong> Zoom out</li>
+            <li>🌸 <strong>Open Palm:</strong> Blossoms</li>
         </ul>
     </div>
+
+    <!-- Magic Wand Element -->
+    <div id="magic-wand" class="magic-wand-cursor">✨</div>
 
     <!-- Navigation Controls -->
     <div class="nav-controls">
@@ -890,10 +925,18 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- TensorFlow.js and MediaPipe HandPose -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.1/dist/hand-pose-detection.min.js"></script>
+
     <!-- Love Story Data -->
     <script src="loveStoryData.js"></script>
 
     <!-- Main Application Script -->
     <script src="app.js"></script>
+
+    <!-- 3D Wand React Overlay -->
+    <div id="wand-root"></div>
+    <script type="module" src="/src/index.jsx"></script>
 </body>
 </html>

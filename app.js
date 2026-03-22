@@ -1,5 +1,5 @@
-// Love Story Map Application - Simplified Motion Detection
-// Interactive map with webcam motion control for Junchi & Eugene's wedding
+// Love Story Map Application - Magic Wand Tracking
+// Interactive map with MediaPipe hand tracking for Junchi & Eugene's wedding
 
 // Global variables
 let map;
@@ -7,15 +7,14 @@ let markers = [];
 let currentMilestoneIndex = 0;
 let gesturesEnabled = false;
 let videoElement;
-let canvas;
-let ctx;
-let gestureCheckInterval;
+let handDetector;
+let isTracking = false;
+let isGrabbed = false;
 let lastGestureTime = 0;
 let timelinePanelOpen = true;
 let isMobile = false;
 let touchStartX = 0;
 let touchStartY = 0;
-let motionHistory = []; // Track motion over time
 
 // Placeholder headshot URLs
 const headshotJunchi = 'https://www.theknot.com/tk-media/images/cee0e60b-2040-4003-8565-f51514310837~rt_auto-rs_430.h';
@@ -48,8 +47,8 @@ function initMap() {
 
         console.log('Leaflet map created:', map);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             maxZoom: 18
         }).addTo(map);
 
@@ -152,6 +151,8 @@ function showMilestone(index) {
     if (index < 0 || index >= loveStoryData.length) return;
 
     currentMilestoneIndex = index;
+    window.currentMilestoneIndex = index; // Expose to React
+
     const milestone = loveStoryData[index];
 
     // Update active timeline item
@@ -174,22 +175,18 @@ function showMilestone(index) {
     setTimeout(() => {
         markers[index].openPopup();
 
-        // Center the popup in viewport (both horizontally and vertically)
+        // Center the popup off to the Top-Right so it doesn't block the dense markers!
         setTimeout(() => {
             const popup = markers[index].getPopup();
             if (popup && popup.isOpen()) {
                 const popupElement = popup.getElement();
                 if (popupElement) {
-                    const popupHeight = popupElement.offsetHeight;
-                    const popupWidth = popupElement.offsetWidth;
-                    const mapSize = map.getSize();
-
-                    // Get the popup container's actual position on screen
                     const popupContainer = popupElement.querySelector('.leaflet-popup-content-wrapper');
                     if (popupContainer) {
                         const popupRect = popupContainer.getBoundingClientRect();
+                        const isMobile = window.innerWidth <= 768;
 
-                        // Calculate desired center positions
+                        // Center the popup in the exact middle of the screen
                         const desiredCenterX = window.innerWidth / 2;
                         const desiredCenterY = (window.innerHeight / 2) + 40; // Slightly below center for header offset
 
@@ -197,11 +194,10 @@ function showMilestone(index) {
                         const currentCenterX = popupRect.left + (popupRect.width / 2);
                         const currentCenterY = popupRect.top + (popupRect.height / 2);
 
-                        // Calculate how much to move
+                        // Calculate how much to move map
                         const deltaX = desiredCenterX - currentCenterX;
                         const deltaY = desiredCenterY - currentCenterY;
 
-                        // Get current map center in pixels, adjust it, convert back to LatLng
                         const currentCenter = map.getCenter();
                         const currentCenterPoint = map.latLngToContainerPoint(currentCenter);
 
@@ -243,32 +239,34 @@ async function toggleGestures() {
 
     const webcamContainer = document.getElementById('webcam-container');
     const gestureIndicator = document.getElementById('gestureIndicator');
+    const wand = document.getElementById('magic-wand');
 
     if (gesturesEnabled) {
         webcamContainer.style.display = 'block';
         gestureIndicator.style.display = 'block';
 
         gestureIndicator.innerHTML = `
-            <h3>✋ Gesture Controls</h3>
+            <h3>✨ Magic Wand Mode</h3>
             <ul>
-                <li>👈 Swipe LEFT: Next story</li>
-                <li>👉 Swipe RIGHT: Previous</li>
+                <li>✋ <strong>Move Hand:</strong> Guide wand</li>
+                <li>🤏 <strong>Pinch/Grab:</strong> Next photo</li>
             </ul>
             <p style="font-size:0.65rem; margin-top:6px; color:#666;">
                 Keyboard: ←→ navigate | Space blossoms
             </p>
         `;
 
-        await initMotionDetection();
+        await initHandTracking();
     } else {
         webcamContainer.style.display = 'none';
         gestureIndicator.style.display = 'none';
+        if (wand) wand.style.display = 'none';
         stopGestureControl();
     }
 }
 
-// Initialize simple motion detection using canvas pixel comparison
-async function initMotionDetection() {
+// Initialize MediaPipe Hand Tracking
+async function initHandTracking() {
     try {
         videoElement = document.getElementById('webcam');
 
@@ -281,192 +279,230 @@ async function initMotionDetection() {
         });
 
         videoElement.srcObject = stream;
+        videoElement.width = 640;
+        videoElement.height = 480;
+        window.videoElement = videoElement;
+        
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => resolve();
+        });
+        
+        videoElement.play();
 
-        // Create hidden canvas for motion detection
-        canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = 120;
-        ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-        let previousImageData = null;
-
-        // Start motion detection loop
-        gestureCheckInterval = setInterval(() => {
-            if (!gesturesEnabled) return;
-
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-            if (previousImageData) {
-                detectMotion(previousImageData, currentImageData);
-            }
-
-            previousImageData = currentImageData;
-        }, 100);
-
-        console.log('✅ Simple motion detection initialized! Wave your hand to test.');
+        const model = handPoseDetection.SupportedModels.MediaPipeHands;
+        const detectorConfig = {
+            runtime: 'tfjs',
+            modelType: 'full', // Use robust model 
+            maxHands: 1
+        };
+        
+        await tf.ready();
+        handDetector = await handPoseDetection.createDetector(model, detectorConfig);
+        
+        console.log('✅ Magic Wand hand tracking initialized! Wave your hand.');
+        
+        isTracking = true;
+        trackingLoop();
     } catch (error) {
-        console.error('Webcam error:', error);
-        alert('Could not access webcam. Please allow camera permissions and refresh.');
+        console.error('Webcam/TFJS error:', error);
+        alert('Could not initialize tracking. Please allow camera permissions and ensure tfjs is loaded.');
         gesturesEnabled = false;
     }
 }
 
-// Calculate center of STRONGEST motion (where hand is)
-function calculateMotionCenter(prevData, currData) {
-    let totalMotion = 0;
-    let weightedX = 0;
-    let weightedY = 0;
-    let maxMotion = 0;
-
-    // Only look at significant motion to filter out body movements
-    for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-            const i = (y * canvas.width + x) * 4;
-
-            const rDiff = Math.abs(prevData.data[i] - currData.data[i]);
-            const gDiff = Math.abs(prevData.data[i + 1] - currData.data[i + 1]);
-            const bDiff = Math.abs(prevData.data[i + 2] - currData.data[i + 2]);
-
-            const motion = (rDiff + gDiff + bDiff) / 3;
-
-            // Only track pixels with strong motion (hand waving)
-            if (motion > 20) {
-                totalMotion += motion;
-                weightedX += x * motion;
-                weightedY += y * motion;
-                if (motion > maxMotion) maxMotion = motion;
-            }
-        }
-    }
-
-    if (totalMotion > 0 && maxMotion > 30) {
-        return {
-            x: weightedX / totalMotion,
-            y: weightedY / totalMotion,
-            total: totalMotion,
-            maxMotion: maxMotion
-        };
-    }
-    return null;
+// Sparkle particle effect
+function createSparkle(x, y) {
+    const sparkle = document.createElement('div');
+    sparkle.className = 'sparkle';
+    const offsetX = (Math.random() - 0.5) * 20;
+    const offsetY = (Math.random() - 0.5) * 20;
+    
+    sparkle.style.left = (x + offsetX) + 'px';
+    sparkle.style.top = (y + offsetY) + 'px';
+    
+    document.body.appendChild(sparkle);
+    
+    setTimeout(() => {
+        if (sparkle.parentNode) sparkle.parentNode.removeChild(sparkle);
+    }, 800);
 }
 
-// Detect gestures from motion
-function detectMotion(prevData, currData) {
-    const now = Date.now();
+// Main Tracking Loop
+async function trackingLoop() {
+    if (!gesturesEnabled || !isTracking) return;
 
-    // Cooldown
-    if (now - lastGestureTime < 1000) return;
+    if (videoElement.readyState >= 2 && handDetector) {
+        try {
+            const hands = await handDetector.estimateHands(videoElement, {flipHorizontal: true});
+            processHandGestures(hands);
+        } catch (e) {
+            console.error('Error during hand prediction:', e);
+        }
+    }
+    
+    requestAnimationFrame(trackingLoop);
+}
 
-    const motionCenter = calculateMotionCenter(prevData, currData);
-
-    if (!motionCenter || motionCenter.total < 600) {
-        motionHistory = [];
+// Process hand coordinates and detect Grab
+function processHandGestures(hands) {
+    if (!hands || hands.length === 0) {
+        window.currentHand = null;
         return;
     }
+    
+    const hand = hands[0];
+    window.currentHand = hand;
 
-    // Add to history - track position of strongest motion (hand)
-    motionHistory.push({
-        x: motionCenter.x,
-        y: motionCenter.y,
-        time: now,
-        total: motionCenter.total
-    });
+    if (!hand.keypoints || hand.keypoints.length < 21) return;
 
-    // Keep last 5 frames
-    if (motionHistory.length > 5) {
-        motionHistory.shift();
+    const wrist = hand.keypoints[0];
+    const thumbTip = hand.keypoints[4];
+    const indexTip = hand.keypoints[8];
+    
+    if (!indexTip || !thumbTip || !wrist) return;
+
+    const vWidth = videoElement.videoWidth || 640;
+    const vHeight = videoElement.videoHeight || 480;
+    
+    // Calculate "Openness" of the hand using the 4 main fingertips to the wrist
+    const tips = [8, 12, 16, 20]; // Index, Middle, Ring, Pinky
+    let totalDist = 0;
+    for (let idx of tips) {
+        const tip = hand.keypoints[idx];
+        const dx = tip.x - wrist.x;
+        const dy = tip.y - wrist.y;
+        totalDist += Math.sqrt(dx*dx + dy*dy);
     }
-
-    if (motionHistory.length < 4) return;
-
-    // Track hand path from oldest to newest position
-    const oldest = motionHistory[0];
-    const newest = motionHistory[motionHistory.length - 1];
-
-    const deltaX = newest.x - oldest.x;
-    const deltaY = newest.y - oldest.y;
-    const timeDelta = newest.time - oldest.time;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-    // Debug display
-    const motionDebug = document.getElementById('motionDebug');
-    const motionValue = document.getElementById('motionValue');
-    if (motionDebug && motionValue) {
-        motionValue.textContent = `X:${motionCenter.x.toFixed(0)} ΔX:${deltaX.toFixed(0)} Dist:${distance.toFixed(0)}`;
-        motionDebug.style.display = 'block';
-        if (distance > 20) {
-            motionDebug.classList.add('active');
-        } else {
-            motionDebug.classList.remove('active');
-        }
+    const averageTipDist = totalDist / 4;
+    
+    // Hysteresis thresholds for robust state tracking
+    const grabThreshold = vHeight * 0.18; // Hand is closed in a fist
+    const openThreshold = vHeight * 0.28; // Hand is opened flat
+    
+    if (window.handGrabbedState === undefined) window.handGrabbedState = false;
+    if (!window.handXHistory) window.handXHistory = [];
+    
+    // Calculate Screen position for Leaflet map mapping (using the exact same 1.4 amplifier as the 3D Wand)
+    const xRatio = indexTip.x / vWidth;
+    const yRatio = indexTip.y / vHeight;
+    const screenX = ((xRatio - 0.5) * 1.4 + 0.5) * window.innerWidth;
+    const screenY = ((yRatio - 0.5) * 1.4 + 0.5) * window.innerHeight;
+    
+    const now = Date.now();
+    window.handXHistory.push({ x: screenX, time: now });
+    if (window.handXHistory.length > 15) window.handXHistory.shift(); // keep short history of movement
+    
+    // --- HOVER Detection: Magically open spots by just sweeping the wand! ---
+    let hitIndex = -1;
+    let minPixelDist = Infinity;
+    
+    if (map && markers && markers.length > 0) {
+        markers.forEach((marker, index) => {
+            const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
+            const dist = Math.hypot(markerPoint.x - screenX, markerPoint.y - screenY);
+            if (dist < minPixelDist) {
+                minPixelDist = dist;
+                hitIndex = index;
+            }
+        });
     }
-
-    // Detect clear horizontal swipe (hand moved across camera)
-    if (distance > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5 && timeDelta > 0) {
-        console.log(`🔍 HAND MOVED: deltaX=${deltaX.toFixed(0)} distance=${distance.toFixed(0)}`);
-
-        if (deltaX < 0) {
-            // Hand position moved LEFT on screen -> user hand moved RIGHT -> swipe RIGHT
-            console.log(`👉 Hand moved LEFT on screen → User swiped RIGHT → PREVIOUS`);
-            previousMilestone();
-        } else {
-            // Hand position moved RIGHT on screen -> user hand moved LEFT -> swipe LEFT
-            console.log(`👈 Hand moved RIGHT on screen → User swiped LEFT → NEXT`);
-            nextMilestone();
+    
+    if (hitIndex !== -1 && minPixelDist < 60) {
+        if (window.hoveredMarkerIndex !== hitIndex) {
+            window.hoveredMarkerIndex = hitIndex;
+            window.hoverStartTime = now;
+        } else if (now - window.hoverStartTime > 400) { // 400ms hover intent
+            if (currentMilestoneIndex !== hitIndex) {
+                console.log(`🌟 WAND HOVER REVEALED SPOT #${hitIndex+1}! (Dist: ${Math.round(minPixelDist)}px)`);
+                triggerMagicalStars();
+                showMilestone(hitIndex);
+            }
         }
-        lastGestureTime = now;
-        motionHistory = [];
+    } else {
+        window.hoveredMarkerIndex = -1;
+    }
+    // ------------------------------------------------------------------------
+    
+    if (!window.handGrabbedState && averageTipDist < grabThreshold) {
+        // Hand just closed!
+        window.handGrabbedState = true;
+        
+        if (now - lastGestureTime > 1200) { // 1.2s cooldown
+            lastGestureTime = now;
+            
+            // 1. Did we grab over a specific map marker? (We already calculated hitIndex & minPixelDist above!)
+            if (hitIndex !== -1 && minPixelDist < 100) {
+                // Force immediate snap if they grab within 100px, bypassing the 400ms hover wait!
+                console.log(`🌟 GRABBED SPOT #${hitIndex+1}! (Dist: ${Math.round(minPixelDist)}px)`);
+                triggerMagicalStars();
+                if (currentMilestoneIndex !== hitIndex) showMilestone(hitIndex);
+            } else {
+                // 2. Empty space grab -> Calculate swiping direction
+                const oldest = window.handXHistory[0];
+                const velocityX = screenX - oldest.x;
+                
+                triggerMagicalStars();
+                
+                if (velocityX > 30) {
+                    console.log(`🌟 SWIPE RIGHT -> Next Milestone`);
+                    nextMilestone();
+                } else if (velocityX < -30) {
+                    console.log(`🌟 SWIPE LEFT -> Previous Milestone`);
+                    previousMilestone();
+                } else {
+                    // Fallback to screen zones if grab was mostly stationary
+                    if (screenX > window.innerWidth / 2) {
+                        console.log(`🌟 GRAB RIGHT -> Next Milestone`);
+                        nextMilestone();
+                    } else {
+                        console.log(`🌟 GRAB LEFT -> Previous Milestone`);
+                        previousMilestone();
+                    }
+                }
+            }
+        }
+    } else if (window.handGrabbedState && averageTipDist > openThreshold) {
+        // Hand just fully opened! Ready for another grab.
+        window.handGrabbedState = false;
+        window.handXHistory = []; // clear speed
     }
 }
 
 // Stop gesture control
 function stopGestureControl() {
-    if (gestureCheckInterval) {
-        clearInterval(gestureCheckInterval);
-    }
-
+    isTracking = false;
     if (videoElement && videoElement.srcObject) {
         videoElement.srcObject.getTracks().forEach(track => track.stop());
         videoElement.srcObject = null;
     }
-
-    motionHistory = [];
 }
 
-// Trigger cherry blossom animation with realistic petals
-function triggerCherryBlossoms() {
+// Trigger shining magical stars
+function triggerMagicalStars() {
     const container = document.body;
 
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 35; i++) {
         setTimeout(() => {
-            const blossom = document.createElement('div');
-            blossom.className = 'cherry-blossom';
-            blossom.style.left = Math.random() * window.innerWidth + 'px';
-            blossom.style.top = '-50px';
-            blossom.style.animationDelay = Math.random() * 0.5 + 's';
-
-            // Create 5 petals
-            for (let j = 1; j <= 5; j++) {
-                const petal = document.createElement('div');
-                petal.className = `petal-${j}`;
-                blossom.appendChild(petal);
-            }
-
-            // Add center
-            const center = document.createElement('div');
-            center.className = 'cherry-blossom-center';
-            blossom.appendChild(center);
-
-            container.appendChild(blossom);
+            const star = document.createElement('div');
+            star.innerHTML = '✨';
+            star.style.position = 'absolute';
+            star.style.left = Math.random() * window.innerWidth + 'px';
+            star.style.top = '-50px';
+            star.style.fontSize = (Math.random() * 25 + 10) + 'px';
+            star.style.color = '#FFD700';
+            star.style.textShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+            star.style.zIndex = '99999';
+            star.style.pointerEvents = 'none';
+            // Use existing fall animation but much slower for floating stars
+            star.style.animation = `fall ${Math.random() * 3 + 3}s linear forwards`;
+            
+            container.appendChild(star);
 
             setTimeout(() => {
-                blossom.remove();
-            }, 3000);
-        }, i * 80);
+                if(star.parentNode) star.remove();
+            }, 6000);
+        }, i * 100);
     }
-
-    triggerLanterns();
 }
 
 // Trigger floating hearts and stars from bottom
@@ -574,7 +610,7 @@ function toggleTimelinePanel() {
 // Detect mobile device
 function detectMobile() {
     isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-               || window.innerWidth <= 768;
+        || window.innerWidth <= 768;
     return isMobile;
 }
 
@@ -706,7 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('keydown', (event) => {
     if (event.repeat) return; // Prevent holding key
 
-    switch(event.key) {
+    switch (event.key) {
         case 'ArrowLeft':
             previousMilestone();
             break;

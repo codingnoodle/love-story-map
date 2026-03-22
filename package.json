@@ -11,14 +11,18 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "@tensorflow-models/hand-pose-detection": "^2.0.1",
     "@tensorflow-models/handpose": "^0.1.0",
     "@tensorflow/tfjs": "^4.22.0",
     "@vitejs/plugin-react": "^6.0.1",
     "leaflet": "^1.9.4",
+    "maath": "^0.10.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-leaflet": "^5.0.0",
+    "three": "^0.183.2",
     "vite": "^8.0.1"
   }
 }
