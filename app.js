@@ -242,11 +242,6 @@ async function toggleGestures() {
     const wand = document.getElementById('magic-wand');
 
     if (gesturesEnabled) {
-        const music = document.getElementById('ambient-music');
-        if (music) {
-            music.volume = 0.3;
-            music.play().catch(e => console.log('Audio Autoplay blocked: ', e));
-        }
 
         webcamContainer.style.display = 'block';
         gestureIndicator.style.display = 'block';
@@ -264,10 +259,6 @@ async function toggleGestures() {
 
         await initHandTracking();
     } else {
-        const music = document.getElementById('ambient-music');
-        if (music) {
-            music.pause();
-        }
 
         webcamContainer.style.display = 'none';
         gestureIndicator.style.display = 'none';
@@ -764,5 +755,34 @@ document.addEventListener('keydown', (event) => {
             event.preventDefault();
             triggerCherryBlossoms();
             break;
+    }
+});
+
+// Start ambient background music globally
+document.addEventListener('DOMContentLoaded', () => {
+    const music = document.getElementById('ambient-music');
+    if (music) {
+        music.volume = 0.3;
+        
+        // Browsers block autoplay without interaction, so we catch the promise
+        const playMusic = () => {
+            music.play().catch(() => console.log('Autoplay blocked, waiting for interaction...'));
+        }
+        
+        playMusic();
+
+        // Fallback: start music on any first user interaction with the page
+        const startOnInteraction = () => {
+            if (music.paused) {
+                music.play().catch(e => console.log('Audio error:', e));
+            }
+            document.removeEventListener('click', startOnInteraction);
+            document.removeEventListener('touchstart', startOnInteraction);
+            document.removeEventListener('keydown', startOnInteraction);
+        };
+
+        document.addEventListener('click', startOnInteraction);
+        document.addEventListener('touchstart', startOnInteraction);
+        document.addEventListener('keydown', startOnInteraction);
     }
 });
