@@ -659,7 +659,7 @@ function initTouchGestures() {
         // Vertical swipe for cherry blossoms (works anywhere)
         if (Math.abs(deltaY) > 120 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
             console.log('📱 Vertical swipe detected -> Cherry blossoms!');
-            triggerCherryBlossoms();
+            triggerMagicalStars();
         }
     }, { passive: true });
 
@@ -753,7 +753,7 @@ document.addEventListener('keydown', (event) => {
             break;
         case ' ':
             event.preventDefault();
-            triggerCherryBlossoms();
+            triggerMagicalStars();
             break;
     }
 });
