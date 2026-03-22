@@ -166,8 +166,10 @@ const PhotoStream = () => {
             if (indexTip) {
                 const xRatio = indexTip.x/vWidth;
                 const yRatio = indexTip.y/vHeight;
-                leaderX = (xRatio - 0.5) * 1.4 * viewport.width;
-                leaderY = -(yRatio - 0.5) * 1.4 * viewport.height;
+                // If touching, use 1:1 ratio. If webcam, use 1.4x accelerator
+                const multiplier = window.touchActive ? 1.0 : 1.4;
+                leaderX = (xRatio - 0.5) * multiplier * viewport.width;
+                leaderY = -(yRatio - 0.5) * multiplier * viewport.height;
                 if(isNaN(leaderX)) leaderX = 0;
                 if(isNaN(leaderY)) leaderY = 0;
             }

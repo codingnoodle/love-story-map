@@ -304,6 +304,7 @@ async function initHandTracking() {
         console.log('✅ Magic Wand hand tracking initialized! Wave your hand.');
         
         isTracking = true;
+        window.isTrackingCam = true;
         trackingLoop();
     } catch (error) {
         console.error('Webcam/TFJS error:', error);
@@ -473,10 +474,13 @@ function processHandGestures(hands) {
 // Stop gesture control
 function stopGestureControl() {
     isTracking = false;
+    window.isTrackingCam = false;
     if (videoElement && videoElement.srcObject) {
         videoElement.srcObject.getTracks().forEach(track => track.stop());
         videoElement.srcObject = null;
     }
+    // Clear hand to let the wand scatter or fall back to mouse
+    window.currentHand = null;
 }
 
 // Trigger shining magical stars
@@ -738,6 +742,61 @@ document.addEventListener('DOMContentLoaded', () => {
         // Start ambient blossoms after a short delay
         setTimeout(startAmbientBlossoms, 2000);
     }, 100);
+});
+
+// Global Finger/Mouse Proxy for 3D Wand
+document.addEventListener('DOMContentLoaded', () => {
+    const updateFakeHand = (x, y) => {
+        // Prevent touch/mouse from fighting an active webcam hand tracker
+        if (window.isTrackingCam) return;
+        
+        window.touchActive = true;
+        // Mock a MediaPipe hand object
+        window.currentHand = {
+            keypoints: Array(21).fill(null).map((_, i) => ({
+                x: i === 8 ? (x / window.innerWidth) * 640 : 0,
+                y: i === 8 ? (y / window.innerHeight) * 480 : 0
+            }))
+        };
+        
+        // Mock the video element properties used by WandCanvas scaling
+        if (!window.videoElement) {
+            window.videoElement = { videoWidth: 640, videoHeight: 480 };
+        }
+        
+        // We also want hover reveal to work on mobile seamlessly with finger!
+        // We calculate the same hover logic as processHandGestures
+        if (map && markers && markers.length > 0) {
+            let hitIndex = -1;
+            let minPixelDist = Infinity;
+            markers.forEach((marker, index) => {
+                const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
+                const dist = Math.hypot(markerPoint.x - x, markerPoint.y - y);
+                if (dist < minPixelDist) {
+                    minPixelDist = dist;
+                    hitIndex = index;
+                }
+            });
+            if (hitIndex !== -1 && minPixelDist < 60) {
+                if (window.hoveredMarkerIndex !== hitIndex) {
+                    window.hoveredMarkerIndex = hitIndex;
+                    window.hoverStartTime = Date.now();
+                } else if (Date.now() - window.hoverStartTime > 400) {
+                    if (currentMilestoneIndex !== hitIndex) {
+                        triggerMagicalStars();
+                        showMilestone(hitIndex);
+                    }
+                }
+            } else {
+                window.hoveredMarkerIndex = -1;
+            }
+        }
+    };
+
+    document.addEventListener('mousemove', (e) => updateFakeHand(e.clientX, e.clientY));
+    document.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) updateFakeHand(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
 });
 
 // Keyboard shortcuts
