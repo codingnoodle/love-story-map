@@ -2,6 +2,12 @@
 
 An immersive, gesture-controlled wedding website featuring an interactive map of love story milestones with a Spring Garden + Ancient Chinese fusion aesthetic.
 
+**Sweet heart version**: 
+https://codingnoodle.github.io/love-story-map/love-map.html
+
+**Lumos version**:
+https://codingnoodle.github.io/love-story-map/lumos/love-map.html
+
 ## Features
 
 ✨ **Interactive Map**: Full-screen Leaflet.js map with custom markers for each milestone
